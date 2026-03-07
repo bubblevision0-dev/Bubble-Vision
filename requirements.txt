@@ -1,5 +1,5 @@
 # Machine learning & vision
-# tensorflow==2.14.0
+tensorflow==2.14.0
 opencv-python==4.13.0.92
 numpy==1.26.0
 scikit-learn==1.8.0
