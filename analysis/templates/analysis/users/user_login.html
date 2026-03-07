@@ -1,0 +1,141 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>User Login | Item Analysis System</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/login.css' %}">
+
+  <style>
+    /* Eye icon INSIDE password input (1 icon only) */
+    .password-field { position: relative; }
+    .password-field .form-control { padding-right: 46px; }
+
+    .pw-eye-btn{
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: none;
+      background: transparent;
+      padding: 0;
+      margin: 0;
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      z-index: 10;
+      color: #1e3a8a;
+      opacity: .9;
+    }
+    .pw-eye-btn:hover{ opacity: 1; }
+    .pw-eye-btn:focus{ outline: none; box-shadow: none; }
+
+    .pw-eye-btn svg{
+      width: 18px;
+      height: 18px;
+      display: block;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- BACKGROUND OVERLAY -->
+  <div class="background-overlay"></div>
+
+  <div class="login-wrapper">
+
+    <!-- SCHOOL BRANDING -->
+    <div class="branding-section">
+      <img src="{% static 'images/logo.png' %}" class="school-logo" alt="School Logo">
+      <p class="school-subtitle">Item Analysis System</p>
+    </div>
+
+    <!-- LOGIN CARD -->
+    <div class="login-card">
+      <h3 class="login-title">User Login</h3>
+      <p class="login-sub">Please enter your credentials</p>
+
+      <form method="POST">
+        {% csrf_token %}
+
+        <div class="mb-3 text-start">
+          <label for="username" class="form-label">Username</label>
+          <input type="text" class="form-control" id="username" name="username" placeholder="Enter username" required>
+        </div>
+
+        <div class="mb-3 text-start">
+          <label for="password" class="form-label">Password</label>
+
+          <div class="password-field">
+            <input type="password" class="form-control" id="password" name="password"
+                   placeholder="Enter password" required autocomplete="current-password">
+
+            <!-- ONE ICON ONLY (SVG content switches) -->
+            <button type="button" class="pw-eye-btn" id="togglePw"
+                    aria-label="Show password" aria-pressed="false">
+              <svg id="pwIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+                <!-- default: EYE (complete) -->
+                <path d="M2.25 12s3.75-7.5 9.75-7.5 9.75 7.5 9.75 7.5-3.75 7.5-9.75 7.5S2.25 12 2.25 12Z"
+                      stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M12 15.75A3.75 3.75 0 1 0 12 8.25a3.75 3.75 0 0 0 0 7.5Z"
+                      stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-login">Login</button>
+      </form>
+
+    </div>
+
+  </div>
+
+  <script>
+    (function(){
+      const btn = document.getElementById('togglePw');
+      const input = document.getElementById('password');
+      const svg = document.getElementById('pwIcon');
+      if(!btn || !input || !svg) return;
+
+      // FULL EYE icon
+      const EYE = `
+        <path d="M2.25 12s3.75-7.5 9.75-7.5 9.75 7.5 9.75 7.5-3.75 7.5-9.75 7.5S2.25 12 2.25 12Z"
+              stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M12 15.75A3.75 3.75 0 1 0 12 8.25a3.75 3.75 0 0 0 0 7.5Z"
+              stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      `;
+
+      // FULL EYE-SLASH icon (eye is still complete + slash line)
+      const EYE_SLASH = `
+        <path d="M3 3l18 18"
+              stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+        <path d="M2.25 12s3.75-7.5 9.75-7.5c6 0 9.75 7.5 9.75 7.5s-3.75 7.5-9.75 7.5S2.25 12 2.25 12Z"
+              stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M12 15.75A3.75 3.75 0 0 1 8.25 12c0-.9.32-1.73.86-2.38M15.75 12c0 .9-.32 1.73-.86 2.38"
+              stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      `;
+
+      btn.addEventListener('click', function(){
+        const willShow = input.type === 'password';
+        input.type = willShow ? 'text' : 'password';
+
+        svg.innerHTML = willShow ? EYE_SLASH : EYE;
+
+        btn.setAttribute('aria-pressed', String(willShow));
+        btn.setAttribute('aria-label', willShow ? 'Hide password' : 'Show password');
+      });
+    })();
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="{% static 'js/script.js' %}"></script>
+</body>
+</html>

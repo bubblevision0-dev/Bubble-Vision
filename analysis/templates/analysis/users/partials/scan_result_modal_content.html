@@ -1,0 +1,79 @@
+{# templates/analysis/users/partials/scan_result_modal_content.html #}
+
+<div style="display:flex;flex-direction:column;gap:14px;">
+
+  <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+    <div>
+      <div style="font-weight:900;color:#0f172a;font-size:16px;">Scan Result</div>
+      <div style="color:#64748b;font-size:12px;margin-top:2px;">
+        Grade {{ grade.name }} – Section {{ section.name }} – {{ subject.name }}
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <span style="background:#f1f5f9;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:700;">
+        Student: {{ student_name|default:"(No name)" }}
+      </span>
+      <span style="background:#eff6ff;color:#1d4ed8;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:900;border:1px solid #bfdbfe;">
+        Score: {{ score }}/{{ max_score }} ({{ score_percent|floatformat:1 }}%)
+      </span>
+    </div>
+  </div>
+
+  {% if image_url %}
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:12px;">
+      <div style="font-weight:800;color:#0f172a;">Scanned Sheet</div>
+      <div style="color:#94a3b8;font-size:12px;margin-top:2px;">
+        (Click image to zoom)
+      </div>
+
+      <div style="margin-top:10px;display:flex;justify-content:center;">
+        <img
+          id="modalAnnotatedSheetImg"
+          src="{{ image_url }}?v={% now 'U' %}"
+          alt="Annotated scanned sheet"
+          style="max-width:100%;border-radius:14px;border:1px solid #e5e7eb;cursor:zoom-in;"
+        />
+      </div>
+    </div>
+  {% endif %}
+
+  <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:12px;">
+    <div style="font-weight:800;color:#0f172a;">Per-Item Results</div>
+    <div style="overflow:auto;margin-top:10px;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr style="background:#f8fafc;">
+            <th style="border:1px solid #e5e7eb;padding:6px 8px;">#</th>
+            <th style="border:1px solid #e5e7eb;padding:6px 8px;">Correct</th>
+            <th style="border:1px solid #e5e7eb;padding:6px 8px;">Student</th>
+            <th style="border:1px solid #e5e7eb;padding:6px 8px;">Points</th>
+            <th style="border:1px solid #e5e7eb;padding:6px 8px;">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in items %}
+            <tr style="background:{% if item.is_correct %}#ecfdf5{% else %}#fef2f2{% endif %};">
+              <td style="border:1px solid #e5e7eb;padding:6px 8px;">{{ item.number }}</td>
+              <td style="border:1px solid #e5e7eb;padding:6px 8px;">{{ item.correct|default:"—" }}</td>
+              <td style="border:1px solid #e5e7eb;padding:6px 8px;">
+                {% if item.student %}{{ item.student }}{% else %}<span style="color:#9ca3af;">Blank</span>{% endif %}
+              </td>
+              <td style="border:1px solid #e5e7eb;padding:6px 8px;">{{ item.points }}</td>
+              <td style="border:1px solid #e5e7eb;padding:6px 8px;">
+                {% if item.is_correct %}
+                  <span style="background:#dcfce7;color:#15803d;padding:3px 8px;border-radius:999px;font-weight:800;font-size:11px;">Correct</span>
+                {% elif item.student %}
+                  <span style="background:#fee2e2;color:#b91c1c;padding:3px 8px;border-radius:999px;font-weight:800;font-size:11px;">Wrong</span>
+                {% else %}
+                  <span style="background:#e5e7eb;color:#4b5563;padding:3px 8px;border-radius:999px;font-weight:800;font-size:11px;">Blank</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>

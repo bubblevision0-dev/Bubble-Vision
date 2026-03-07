@@ -1,0 +1,286 @@
+{% extends "analysis/users/base.html" %}
+{% load static %}
+
+{% block title %}Dashboard | Item Analysis{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/user_dashboard.css' %}">
+
+<style>
+  /* --- Enhanced Navigation & Grading UI --- */
+  .grading-context-container {
+    background: rgba(15, 23, 42, 0.03);
+    border-radius: 16px;
+    padding: 20px;
+    margin-top: 15px;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+  }
+  
+  .grading-period-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 800;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+  }
+
+  .grading-period-bar { display: flex; flex-wrap: wrap; gap: 10px; }
+  
+  .gp-btn { 
+    padding: 10px 20px; border-radius: 10px; border: 1px solid #e2e8f0; 
+    background: #fff; font-size: 14px; font-weight: 700; cursor: pointer; 
+    text-decoration: none; color: #475569; transition: all .2s ease; 
+    display: inline-flex; align-items: center; gap: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  }
+  
+  .gp-btn:hover:not(.disabled-link):not(.active) {
+    border-color: #0f172a;
+    background: #f8fafc;
+    transform: translateY(-1px);
+  }
+
+  .gp-btn.active { 
+    background: #0f172a; 
+    color: #fff; 
+    border-color: #0f172a;
+    box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.2);
+  }
+  
+  .gp-btn.active::before {
+    content: '●';
+    color: #10b981;
+    font-size: 10px;
+  }
+
+  .gp-btn:disabled, .gp-btn.disabled-link { 
+    opacity: 0.4; cursor: not-allowed; background: #f1f5f9; border-color: #e2e8f0; pointer-events: none; 
+  }
+
+  /* --- Existing Styles --- */
+  #scanCaptureSection { display: none; margin-top: 30px; padding-top: 20px; border-top: 2px dashed #e2e8f0; animation: fadeIn 0.4s ease-out; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  .assigned-classes-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-bottom: 30px; }
+  .class-box { background: #ffffff; border: 1px solid #e2e8f0; padding: 16px; border-radius: 12px; display: flex; align-items: center; gap: 12px; transition: all 0.2s ease; border-left: 5px solid #0f172a; cursor: pointer; position: relative; }
+  .class-box:hover { transform: translateY(-3px); box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.1); }
+  
+  .box-edit-btn { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: #f1f5f9; color: #475569; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; transition: all 0.2s; visibility: hidden; opacity: 0; }
+  .class-box:hover .box-edit-btn { visibility: visible; opacity: 1; }
+  .box-icon { background: #f1f5f9; color: #0f172a; width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+  .box-content .grade-sec { font-weight: 800; color: #1e293b; font-size: 15px; margin: 0; padding-right: 35px; }
+  .box-content .subject-name { color: #64748b; font-size: 13px; margin-top: 4px; }
+
+  .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); display: none; align-items: center; justify-content: center; z-index: 2000; }
+  .modal-overlay.show { display: flex; }
+  .file-current { font-size: 11px; color: #64748b; margin-top: -10px; margin-bottom: 10px; display: block; font-style: italic; }
+</style>
+
+<div class="page-header">
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 20px;">
+    <div>
+      <h2 style="margin-bottom: 5px;">Welcome back, {{ request.user.first_name }}</h2>
+      <p style="margin: 0; color: #64748b;">
+        <i class="fas fa-university"></i> <strong>{{ institution_name }}</strong> 
+        <span style="margin: 0 10px; color: #cbd5e1;">|</span>
+        <i class="fas fa-calendar-alt"></i> SY: <strong>{{ academic_year }}</strong>
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="dashboard-container">
+  <div class="dashboard-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 25px;">
+    <div class="stat-card clickable-action" id="triggerScan" style="cursor: pointer; text-align: center; padding: 25px; border-bottom: 4px solid #0f172a;">
+        <i class="fas fa-camera-retro" style="font-size: 2.5rem; color: #0f172a; margin-bottom: 15px;"></i>
+        <h4 style="margin:0;">Scan & Capture</h4>
+        <small style="color: #64748b;">Upload keys and process sheets</small>
+    </div>
+    
+    <div class="stat-card" style="text-align: center; padding: 25px;">
+        <i class="fas fa-chart-line" style="font-size: 2.5rem; color: #3b82f6; margin-bottom: 15px;"></i>
+        <h4 style="margin:0;">View Analytics</h4>
+        <small style="color: #64748b;">See student performance</small>
+    </div>
+  </div>
+
+  <section id="scanCaptureSection">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: #f8fafc; padding: 15px; border-radius: 12px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <i class="fas fa-chalkboard-teacher" style="color: #0f172a; font-size: 20px;"></i>
+            <h3 style="font-size: 18px; color: #1e293b; margin: 0; font-weight: 800;">My Assigned Classes</h3>
+        </div>
+        <button type="button" class="gp-btn active" id="openUploadBtn" {% if not can_upload %}disabled style="opacity:0.5;"{% endif %}>
+            <i class="fas fa-plus"></i> New Upload
+        </button>
+    </div>
+
+    <div class="assigned-classes-row" id="classBoxesContainer"></div>
+  </section>
+
+  <div style="display: none;">
+    <table id="savedKeysTable">
+      <tbody>
+        {% for key in saved_keys %}
+          <tr data-grade="{{ key.grade.id }}" 
+              data-section="{{ key.section.id }}" 
+              data-subject="{{ key.subject.id }}" 
+              data-url="{% url 'answer_key_review' key.id %}"
+              data-test-name="{{ key.test_sheet.name }}"
+              data-key-name="{{ key.answer_key.name }}">
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modal-overlay" id="uploadModal">
+    <div class="answer-key-modal" style="background:white; border-radius:16px; width:95%; max-width:650px; overflow:hidden;">
+      <div style="padding: 24px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; background: #f8fafc;">
+        <h3 style="margin:0; font-weight: 800;" id="modalTitle">New Analysis Upload</h3>
+        <button type="button" id="closeModal" style="background:none; border:none; font-size:24px; color:#94a3b8; cursor:pointer;">&times;</button>
+      </div>
+      <form id="uploadForm" method="post" enctype="multipart/form-data" action="{% url 'upload_answer_key' %}{% if selected_grading_period %}?gp={{ selected_grading_period.id }}{% endif %}" style="padding: 24px;">
+        {% csrf_token %}
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+          <div>
+            <label style="font-size: 11px; font-weight: bold; color: #475569; display:block; margin-bottom:5px;">CLASS INFO</label>
+            <select id="grade" name="grade" required style="width:100%; padding:12px; margin-bottom:12px; border-radius:8px; border:1px solid #cbd5e1;">
+              <option value="" disabled selected>Select Grade</option>
+              {% for g in allowed_grades %}
+                <option value="{{ g.id }}">{{ g.name }}</option>
+              {% endfor %}
+            </select>
+            <select id="section" name="section" required disabled style="width:100%; padding:12px; margin-bottom:12px; border-radius:8px; border:1px solid #cbd5e1;">
+              <option value="" disabled selected>Section</option>
+            </select>
+            <select id="subject" name="subject" required disabled style="width:100%; padding:12px; border-radius:8px; border:1px solid #cbd5e1;">
+              <option value="" disabled selected>Subject</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 11px; font-weight: bold; color: #475569; display:block; margin-bottom:5px;">QUESTIONNAIRE</label>
+            <input type="file" name="test_sheet" id="file_test" style="width:100%; margin-bottom:15px;" required>
+            <span id="current_test" class="file-current"></span>
+
+            <label style="font-size: 11px; font-weight: bold; color: #475569; display:block; margin-bottom:5px;">ANSWER KEY (CSV)</label>
+            <input type="file" name="answer_key" id="file_key" style="width:100%;" required>
+            <span id="current_key" class="file-current"></span>
+          </div>
+        </div>
+        <button type="submit" class="gp-btn active" style="width:100%; margin-top:24px; justify-content: center;" id="submitBtn">Process Upload</button>
+      </form>
+    </div>
+</div>
+
+<script>
+  const ASSIGNMENTS = {{ assigned_classes_json|safe }};
+  
+  function getExistingData() {
+    const data = {};
+    document.querySelectorAll('#savedKeysTable tbody tr').forEach(row => {
+      const key = `${row.dataset.grade}-${row.dataset.section}-${row.dataset.subject}`;
+      data[key] = {
+        url: row.dataset.url,
+        testName: row.dataset.testName ? row.dataset.testName.split('/').pop() : '',
+        keyName: row.dataset.keyName ? row.dataset.keyName.split('/').pop() : ''
+      };
+    });
+    return data;
+  }
+
+  function renderClassBoxes() {
+    const container = document.getElementById('classBoxesContainer');
+    const existing = getExistingData();
+
+    container.innerHTML = ASSIGNMENTS.map(a => {
+      const key = `${a.grade_id}-${a.section_id}-${a.subject_id}`;
+      const hasUpload = existing[key];
+      const boxAction = hasUpload ? `window.location.href='${hasUpload.url}'` : `preFillModal('${a.grade_id}', '${a.section_id}', '${a.subject_id}')`;
+
+      return `
+        <div class="class-box" onclick="${boxAction}">
+          <div class="box-icon"><i class="fas fa-graduation-cap"></i></div>
+          <div class="box-content">
+            <p class="grade-sec">Grade ${a.grade_name} - ${a.section_name}</p>
+            <p class="subject-name">${a.subject_name}</p>
+            ${hasUpload ? '<span style="font-size:10px; color:#10b981; font-weight:bold; display:block; margin-top:5px;"><i class="fas fa-check-circle"></i> UPLOADED</span>' : ''}
+          </div>
+          <button class="box-edit-btn" onclick="event.stopPropagation(); preFillModal('${a.grade_id}', '${a.section_id}', '${a.subject_id}', true)" title="Edit Files">
+            <i class="fas fa-pen"></i>
+          </button>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function preFillModal(gId = '', nId = '', sId = '', isEdit = false) {
+    {% if can_upload %}
+    const modal = document.getElementById('uploadModal');
+    const existing = isEdit ? getExistingData()[`${gId}-${nId}-${sId}`] : null;
+    
+    document.getElementById('modalTitle').innerText = isEdit ? "Update Analysis Files" : "New Analysis Upload";
+    document.getElementById('submitBtn').innerText = isEdit ? "Update Files" : "Process Upload";
+    
+    document.getElementById('grade').value = gId;
+    if(gId) {
+        updateSections(gId, nId);
+        if(nId) updateSubjects(gId, nId, sId);
+    }
+    
+    const testIn = document.getElementById('file_test');
+    const keyIn = document.getElementById('file_key');
+    const testPrev = document.getElementById('current_test');
+    const keyPrev = document.getElementById('current_key');
+
+    testIn.required = !isEdit;
+    keyIn.required = !isEdit;
+    testPrev.innerHTML = (isEdit && existing) ? `Current: ${existing.testName}` : "";
+    keyPrev.innerHTML = (isEdit && existing) ? `Current: ${existing.keyName}` : "";
+
+    modal.classList.add('show');
+    {% else %}
+    alert("Grading period not active.");
+    {% endif %}
+  }
+
+  function updateSections(gradeId, selectedSection = null) {
+    const nSelect = document.getElementById('section');
+    const filtered = [...new Map(ASSIGNMENTS.filter(a => String(a.grade_id) === String(gradeId)).map(a => [a.section_id, a])).values()];
+    nSelect.innerHTML = `<option value="" disabled selected>Section</option>` + filtered.map(s => `<option value="${s.section_id}">${s.section_name}</option>`).join('');
+    nSelect.disabled = false;
+    if (selectedSection) nSelect.value = selectedSection;
+  }
+
+  function updateSubjects(gradeId, sectionId, selectedSubject = null) {
+    const sSelect = document.getElementById('subject');
+    const filtered = ASSIGNMENTS.filter(a => String(a.grade_id) === String(gradeId) && String(a.section_id) === String(sectionId));
+    sSelect.innerHTML = `<option value="" disabled selected>Subject</option>` + filtered.map(s => `<option value="${s.subject_id}">${s.subject_name}</option>`).join('');
+    sSelect.disabled = false;
+    if (selectedSubject) sSelect.value = selectedSubject;
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    renderClassBoxes();
+    
+    const triggerBtn = document.getElementById('triggerScan');
+    const scanSection = document.getElementById('scanCaptureSection');
+    
+    triggerBtn.addEventListener('click', () => {
+      scanSection.style.display = (scanSection.style.display === 'none' || scanSection.style.display === '') ? 'block' : 'none';
+      if(scanSection.style.display === 'block') {
+          scanSection.scrollIntoView({ behavior: 'smooth' });
+      }
+    });
+
+    document.getElementById('openUploadBtn')?.addEventListener('click', () => preFillModal());
+    document.getElementById('closeModal')?.addEventListener('click', () => document.getElementById('uploadModal').classList.remove('show'));
+    
+    document.getElementById('grade').addEventListener('change', function() { updateSections(this.value); });
+    document.getElementById('section').addEventListener('change', function() { updateSubjects(document.getElementById('grade').value, this.value); });
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends 'analysis/users/base.html' %}
+{% load static %}
+
+{% block content %}
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="{% static 'css/user_report.css' %}">
+
+<div class="answer-key-container">
+  <h2>Delete Answer Key</h2>
+  <p>Are you sure you want to delete the answer key for 
+     <strong>{{ answer_key.grade.name }} - {{ answer_key.section.name }} - {{ answer_key.subject.name }}</strong>?</p>
+
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger">Yes, Delete</button>
+    <a href="{% url 'upload_answer_key' %}" class="btn btn-secondary">Cancel</a>
+  </form>
+</div>
+{% endblock %}

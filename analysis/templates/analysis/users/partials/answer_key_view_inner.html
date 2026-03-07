@@ -1,0 +1,30 @@
+{# No base.html here – this is injected inside the modal body #}
+
+<div class="ak-detail-grid">
+    <div>
+        <p><strong>Grade:</strong> {{ answer_key.grade.name }}</p>
+        <p><strong>Section:</strong> {{ answer_key.section.name }}</p>
+        <p><strong>Subject:</strong> {{ answer_key.subject.name }}</p>
+    </div>
+    <div>
+        <p><strong>Uploaded by:</strong> {{ answer_key.user.username }}</p>
+        <p><strong>Uploaded at:</strong> {{ answer_key.uploaded_at|date:"M d, Y - h:i A" }}</p>
+    </div>
+</div>
+
+<div class="ak-files">
+    <p><strong>Test Sheet:</strong>
+        {% if answer_key.test_sheet %}
+            <a href="{{ answer_key.test_sheet.url }}" target="_blank">Download</a>
+        {% else %}
+            <span>No file.</span>
+        {% endif %}
+    </p>
+    <p><strong>Answer Key:</strong>
+        {% if answer_key.file %}
+            <a href="{{ answer_key.file.url }}" target="_blank">Download</a>
+        {% else %}
+            <span>No file.</span>
+        {% endif %}
+    </p>
+</div>

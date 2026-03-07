@@ -1,0 +1,489 @@
+{% extends "institution_admin/base.html" %}
+{% load static %}
+{% block title %}Institution Details | BubbleVision{% endblock %}
+
+{% block content %}
+
+<style>
+  .page-shell *{ box-sizing:border-box; }
+
+  .page-shell{
+    max-width: 1200px;
+    margin: 22px auto 60px;
+    padding: 0 18px;
+  }
+
+  /* Header */
+  .page-header{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  .page-header h2{
+    margin: 0;
+    font-size: 28px;
+    font-weight: 900;
+    color:#0f172a;
+    letter-spacing: -.2px;
+    line-height: 1.12;
+  }
+  .subtitle{
+    margin: 6px 0 0;
+    color:#6b7280;
+    font-size: 13.5px;
+    line-height: 1.4;
+  }
+  .page-header-actions{
+    display:flex;
+    gap: 10px;
+    align-items:center;
+    flex-wrap:wrap;
+    padding-top: 4px;
+  }
+
+  /* Buttons */
+  .btnX{
+    display:inline-flex;
+    align-items:center;
+    gap: 8px;
+    justify-content:center;
+    border-radius: 999px;
+    padding: 9px 14px;
+    font-size: 12.5px;
+    font-weight: 900;
+    border: 1px solid transparent;
+    text-decoration:none;
+    cursor:pointer;
+    user-select:none;
+    white-space:nowrap;
+  }
+  .btn-secondaryX{
+    background:#eef2ff;
+    color:#1e3a8a;
+    border-color: rgba(37,99,235,.20);
+  }
+  .btn-secondaryX:hover{ background:#e0e7ff; }
+
+  /* ✅ Layout: LEFT = Create Admin, RIGHT = Details + Existing Admins */
+  .page-shell .grid{
+    display:grid !important;
+    grid-template-columns: minmax(520px, 1fr) minmax(520px, 1fr) !important;
+    gap: 16px !important;
+    align-items:start !important;
+  }
+  /* Swap columns visually without changing HTML order:
+     first column (details/admin list) -> RIGHT
+     second column (create/edit admin) -> LEFT */
+  .page-shell .grid > div:first-child{ order: 2 !important; }
+  .page-shell .grid > div:last-child{ order: 1 !important; }
+
+  @media (max-width: 860px){
+    .page-shell .grid{ grid-template-columns: 1fr !important; }
+    .page-shell .grid > div:first-child,
+    .page-shell .grid > div:last-child{ order: 0 !important; }
+  }
+
+  /* Card */
+  .cardX{
+    background: rgba(255,255,255,0.94);
+    border: 1px solid rgba(148,163,184,.24);
+    border-radius: 22px;
+    box-shadow: 0 22px 55px rgba(15,23,42,.08);
+    overflow:hidden;
+  }
+  .cardX-h{
+    padding: 16px 18px 12px;
+    border-bottom: 1px dashed rgba(148,163,184,.35);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap: 10px;
+  }
+  .cardX-h h4{
+    margin:0;
+    font-size: 15px;
+    font-weight: 900;
+    color:#0f172a;
+    letter-spacing: -.1px;
+    display:flex;
+    align-items:center;
+    gap: 10px;
+    line-height: 1.2;
+  }
+  .cardX-b{ padding: 16px 18px 18px; }
+
+  .pill{
+    display:inline-flex;
+    align-items:center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 900;
+    background: #eef2ff;
+    color:#1e3a8a;
+    border: 1px solid rgba(37,99,235,.18);
+    line-height: 1;
+  }
+
+  /* Details rows */
+  .detail-row{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(148,163,184,.18);
+  }
+  .detail-row:last-child{ border-bottom: none; }
+  .detail-k{
+    color:#64748b;
+    font-size: 12.5px;
+    font-weight: 900;
+    min-width: 120px;
+  }
+  .detail-v{
+    color:#0f172a;
+    font-size: 13.5px;
+    font-weight: 800;
+    text-align:right;
+    word-break: break-word;
+  }
+
+  /* Lists */
+  .nice-list{
+    list-style:none;
+    padding:0;
+    margin:0;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .nice-item{
+    border:1px solid rgba(148,163,184,.24);
+    background:#fff;
+    border-radius:16px;
+    padding: 12px 12px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+  }
+  .nice-left{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    min-width:0;
+  }
+  .nice-title{
+    font-weight:900;
+    color:#0f172a;
+    font-size:13px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+  .nice-sub{
+    color:#64748b;
+    font-weight:700;
+    font-size:12.5px;
+  }
+  .empty{
+    color:#64748b;
+    font-weight:800;
+    font-size:13px;
+    padding-top:6px;
+  }
+
+  /* Form fields */
+  .ua-field{ margin-bottom: 12px; }
+  .ua-field label{
+    display:block;
+    font-size: 12.5px;
+    font-weight: 900;
+    color:#0f172a;
+    margin-bottom: 6px;
+  }
+  .ua-field input,
+  .ua-field select,
+  .ua-field textarea{
+    width:100%;
+    border: 1px solid rgba(148,163,184,.35);
+    border-radius: 14px;
+    padding: 10px 12px;
+    outline:none;
+    background:#fff;
+    font-size: 13px;
+  }
+  .ua-field input:focus,
+  .ua-field select:focus,
+  .ua-field textarea:focus{
+    border-color: rgba(37,99,235,.55);
+    box-shadow: 0 0 0 4px rgba(37,99,235,.12);
+  }
+
+  .ua-help{
+    color:#64748b;
+    font-size:12px;
+    font-weight:700;
+    margin-top:6px;
+    line-height: 1.35;
+  }
+
+  .ua-actions{
+    display:flex;
+    gap:10px;
+    align-items:center;
+    margin-top:12px;
+    flex-wrap:wrap;
+  }
+
+  .ua-btn{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    justify-content:center;
+    border-radius:999px;
+    padding:10px 14px;
+    font-size:12.5px;
+    font-weight:900;
+    border:1px solid transparent;
+    cursor:pointer;
+    text-decoration:none;
+    white-space:nowrap;
+  }
+  .ua-btn-primary{
+    background:#2563eb;
+    color:#fff;
+    box-shadow: 0 12px 26px rgba(37,99,235,.28);
+  }
+  .ua-btn-primary:hover{ background:#1d4ed8; }
+
+  .msg{
+    background:#f1f5f9;
+    border:1px solid rgba(148,163,184,.35);
+    padding:10px 12px;
+    border-radius:14px;
+    color:#0f172a;
+    font-weight:800;
+    font-size:12.5px;
+    margin-bottom:12px;
+    line-height:1.35;
+  }
+  .msg-error{
+    background:#fee2e2;
+    border-color: rgba(185,28,28,.22);
+    color:#991b1b;
+  }
+
+  /* ✅ Admin row actions (Edit/Delete) */
+  .nice-actions{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-shrink:0;
+  }
+  .mini-btn{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding: 8px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 900;
+    border: 1px solid rgba(148,163,184,.28);
+    background:#fff;
+    color:#0f172a;
+    text-decoration:none;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .mini-btn:hover{ background:#f8fafc; }
+
+  .mini-edit{
+    background:#fff7ed;
+    border-color: rgba(234,88,12,.25);
+    color:#9a3412;
+  }
+  .mini-edit:hover{ background:#ffedd5; }
+
+  .mini-del{
+    background:#fee2e2;
+    border-color: rgba(185,28,28,.22);
+    color:#991b1b;
+  }
+  .mini-del:hover{ background:#fecaca; }
+
+  .mini-cancel{
+    background:#f1f5f9;
+    border-color: rgba(148,163,184,.35);
+    color:#0f172a;
+  }
+  .mini-cancel:hover{ background:#e2e8f0; }
+</style>
+
+<div class="page-shell">
+  <div class="page-header">
+    <div>
+      <h2>{{ institution.name }}</h2>
+      <p class="subtitle">View the details of the newly added institution.</p>
+    </div>
+
+    <div class="page-header-actions">
+      {# optional back button #}
+      <!-- {# <a href="{% url 'add_institution' %}" class="btnX btn-secondaryX">
+        <i class="fas fa-arrow-left"></i> Back
+      </a> #} -->
+    </div>
+  </div>
+
+  <div class="grid">
+
+    <!-- DETAILS + EXISTING ADMINS (will appear on RIGHT via CSS order) -->
+    <div style="display:flex; flex-direction:column; gap:16px;">
+
+      <!-- Institution Details -->
+      <div class="cardX">
+        <div class="cardX-h">
+          <h4><span class="pill">🏫</span> Institution Details</h4>
+        </div>
+        <div class="cardX-b">
+          <div class="detail-row">
+            <div class="detail-k">Name</div>
+            <div class="detail-v">{{ institution.name }}</div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-k">School Year</div>
+            <div class="detail-v">{{ institution.school_year }}</div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-k">Address</div>
+            <div class="detail-v">{{ institution.address|default:"—" }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Existing Admin Users -->
+      <div class="cardX">
+        <div class="cardX-h">
+          <h4><span class="pill">👤</span> Existing Admin Users</h4>
+        </div>
+        <div class="cardX-b">
+          {% if institution_admins %}
+            <ul class="nice-list">
+              {% for admin in institution_admins %}
+                <li class="nice-item">
+                  <div class="nice-left">
+                    <div class="nice-title">
+                      {{ admin.user.first_name }} {{ admin.user.last_name }}
+                      <span class="pill" style="background:#ecfdf5;color:#166534;border-color:rgba(22,101,52,.18);">Admin</span>
+                    </div>
+                    <div class="nice-sub">@{{ admin.user.username }}</div>
+                  </div>
+
+                  <div class="nice-actions">
+                    <a class="mini-btn mini-edit" href="?edit_admin={{ admin.id }}">
+                      <i class="fas fa-pen"></i> Edit
+                    </a>
+
+                    <form method="POST" style="margin:0;">
+                      {% csrf_token %}
+                      <input type="hidden" name="delete_admin" value="1">
+                      <input type="hidden" name="admin_id" value="{{ admin.id }}">
+                      <button type="submit" class="mini-btn mini-del"
+                              onclick="return confirm('Delete this admin user?');">
+                        <i class="fas fa-trash"></i> Delete
+                      </button>
+                    </form>
+                  </div>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <div class="empty">No admin users associated with this institution yet.</div>
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+
+    <!-- CREATE/EDIT ADMIN (will appear on LEFT via CSS order) -->
+    <div style="display:flex; flex-direction:column; gap:16px;">
+
+      <div class="cardX">
+        <div class="cardX-h">
+          <h4>
+            <span class="pill">{% if editing_admin %}✏️{% else %}➕{% endif %}</span>
+            {% if editing_admin %}Edit Admin User{% else %}Create Admin User{% endif %}
+          </h4>
+        </div>
+
+        <div class="cardX-b">
+          <form method="POST">
+            {% csrf_token %}
+            {% if editing_admin %}
+              <input type="hidden" name="editing_admin_id" value="{{ editing_admin.id }}">
+            {% endif %}
+
+            {% if form.non_field_errors %}
+              <div class="msg msg-error">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            <div class="ua-field">
+              <label>Username:</label>
+              {{ form.username }}
+              {% if form.username.errors %}
+                <div class="ua-help" style="color:#b91c1c">{{ form.username.errors }}</div>
+              {% endif %}
+            </div>
+
+            <div class="ua-field">
+              <label>First name:</label>
+              {{ form.first_name }}
+              {% if form.first_name.errors %}
+                <div class="ua-help" style="color:#b91c1c">{{ form.first_name.errors }}</div>
+              {% endif %}
+            </div>
+
+            <div class="ua-field">
+              <label>Last name:</label>
+              {{ form.last_name }}
+              {% if form.last_name.errors %}
+                <div class="ua-help" style="color:#b91c1c">{{ form.last_name.errors }}</div>
+              {% endif %}
+            </div>
+
+            {% if not editing_admin %}
+              <div class="ua-help">
+                Default password: <b>INSADMIN2025</b>
+              </div>
+            {% else %}
+              <div class="ua-help">
+                Password is not changed when editing.
+              </div>
+            {% endif %}
+
+            <div class="ua-actions">
+              <button type="submit" class="ua-btn ua-btn-primary">
+                <i class="fas fa-save"></i>
+                {% if editing_admin %}Update Admin User{% else %}Save Admin User{% endif %}
+              </button>
+
+              {% if editing_admin %}
+                <a href="{% url 'institution_detail' institution.id %}" class="mini-btn mini-cancel">
+                  <i class="fas fa-times"></i> Cancel Edit
+                </a>
+              {% endif %}
+            </div>
+          </form>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}

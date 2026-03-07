@@ -1,0 +1,284 @@
+/* Admin profile page styling
+   Uses global theme vars from style.css
+*/
+
+.profile-page {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.1fr);
+    gap: 18px;
+    margin-top: 10px;
+}
+
+/* Generic card (reuses admin look) */
+.card {
+    background: var(--bg-card, #ffffff);
+    border-radius: var(--radius-lg, 18px);
+    border: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.3));
+    padding: 18px 20px 20px;
+    box-shadow: var(--shadow-soft, 0 18px 45px rgba(15, 23, 42, 0.12));
+}
+
+/* LEFT: PROFILE CARD */
+
+.profile-card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.profile-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: var(--accent-soft, rgba(37,99,235,0.12));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent, #2563eb);
+    font-weight: 600;
+    font-size: 22px;
+}
+
+.profile-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-initial {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
+.profile-main-info h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: var(--text-main, #0f172a);
+}
+
+.role-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: rgba(37,99,235,0.08);
+    color: var(--accent-strong, #1d4ed8);
+}
+
+.role-pill i {
+    font-size: 12px;
+}
+
+/* Details list */
+
+.profile-details {
+    margin-top: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 0;
+    border-bottom: 1px dashed rgba(148,163,184,0.4);
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+}
+
+.detail-label {
+    font-size: 13px;
+    color: var(--text-soft, #6b7280);
+}
+
+.detail-value {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-main, #0f172a);
+}
+
+/* RIGHT: PASSWORD CARD */
+
+.password-card .card-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-main, #0f172a);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.password-card .card-title i {
+    color: var(--accent, #2563eb);
+}
+
+.password-card .card-subtitle {
+    font-size: 13px;
+    color: var(--text-soft, #6b7280);
+    margin-bottom: 12px;
+}
+
+/* Messages (success / error) */
+
+.messages-block {
+    margin-bottom: 10px;
+}
+
+.alert {
+    font-size: 13px;
+    padding: 6px 10px;
+    border-radius: 10px;
+    margin-bottom: 6px;
+}
+
+.alert.success {
+    background: rgba(22,163,74,0.12);
+    border: 1px solid rgba(22,163,74,0.4);
+    color: #15803d;
+}
+
+.alert.error,
+.alert.danger {
+    background: rgba(248,113,113,0.12);
+    border: 1px solid rgba(248,113,113,0.5);
+    color: #b91c1c;
+}
+
+/* Password form */
+
+.password-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.password-form .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.password-form label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-main, #0f172a);
+}
+
+.password-input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.password-input-wrapper input[type="password"],
+.password-input-wrapper input[type="text"],
+.password-form input[type="password"],
+.password-form input[type="text"] {
+    flex: 1;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border-subtle, rgba(148,163,184,0.6));
+    font-size: 14px;
+    background: var(--bg-card-soft, #f9fafb);
+    color: var(--text-main, #0f172a);
+    outline: none;
+    transition: 0.15s ease;
+}
+
+.password-form input:focus {
+    border-color: var(--accent, #2563eb);
+    box-shadow: 0 0 0 1px rgba(37,99,235,0.35);
+    background: #ffffff;
+}
+
+/* Toggle password icon button */
+
+.toggle-password {
+    border: none;
+    background: transparent;
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-soft, #6b7280);
+    transition: 0.15s ease;
+}
+
+.toggle-password i {
+    font-size: 14px;
+}
+
+.toggle-password:hover {
+    background: rgba(148,163,184,0.2);
+}
+
+/* Help & error text */
+
+.help-text {
+    font-size: 11px;
+    color: var(--text-muted, #9ca3af);
+}
+
+.error-text {
+    font-size: 12px;
+    color: #ef4444;
+}
+
+/* Update password button */
+
+.btn-update-password {
+    margin-top: 6px;
+    align-self: flex-end;
+    padding: 8px 16px;
+    border-radius: 999px;
+    border: none;
+    background: var(--accent, #2563eb);
+    color: #f9fafb;
+    font-size: 13px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    box-shadow: 0 10px 24px rgba(37,99,235,0.35);
+    transition: 0.16s ease;
+}
+
+.btn-update-password i {
+    font-size: 14px;
+}
+
+.btn-update-password:hover {
+    background: var(--accent-strong, #1d4ed8);
+    transform: translateY(-1px);
+    box-shadow: 0 14px 30px rgba(37,99,235,0.45);
+}
+
+.btn-update-password:active {
+    transform: translateY(0);
+    box-shadow: 0 8px 20px rgba(37,99,235,0.35);
+}
+
+/* Responsive */
+
+@media (max-width: 900px) {
+    .profile-page {
+        grid-template-columns: 1fr;
+    }
+}

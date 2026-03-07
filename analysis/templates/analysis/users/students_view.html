@@ -1,0 +1,1147 @@
+{% extends 'analysis/users/base.html' %}
+{% load static %}
+
+{% block title %}Students | BubbleVision{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/grade.css' %}">
+
+<style>
+  .page-wrapper {
+      padding: 20px 40px 40px;
+  }
+
+  .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+  }
+
+  .page-header h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #0f172a;
+      margin: 0;
+  }
+
+  .page-header-subtitle {
+      font-size: 0.95rem;
+      color: #6b7280;
+      margin-top: 2px;
+  }
+
+  .students-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+      gap: 28px;
+      align-items: flex-start;
+  }
+
+  .panel {
+      background: #ffffff;
+      border-radius: 24px;
+      box-shadow: 0 20px 60px rgba(15, 23, 42, 0.12);
+      padding: 22px 24px 24px;
+  }
+
+  .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+  }
+
+  .panel-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #111827;
+  }
+
+  .panel-subtitle {
+      font-size: 0.86rem;
+      color: #6b7280;
+  }
+
+  .alert {
+      font-size: 0.85rem;
+      padding: 8px 10px;
+      border-radius: 10px;
+      margin-bottom: 8px;
+  }
+
+  .alert-success {
+      background: #ecfdf3;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+  }
+
+  .alert-error,
+  .alert-danger {
+      background: #fef2f2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+  }
+
+  .form-group {
+      margin-bottom: 12px;
+  }
+
+  .form-group label {
+      display: block;
+      font-size: 0.88rem;
+      font-weight: 500;
+      margin-bottom: 4px;
+      color: #374151;
+  }
+
+  .form-control {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid #e5e7eb;
+      padding: 9px 11px;
+      font-size: 0.9rem;
+      color: #111827;
+      outline: none;
+      transition: border-color 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+      background: #f9fafb;
+  }
+
+  .form-control:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.35);
+      background: #ffffff;
+  }
+
+  /* inline row for MI + Last Name */
+  .form-row-inline {
+      display: flex;
+      gap: 12px;
+  }
+
+  .form-row-inline .form-group {
+      flex: 1;
+      margin-bottom: 0;
+  }
+
+  .form-row-inline .form-group.mi-group {
+      flex: 0 0 120px;
+  }
+
+  /* text inputs look like selects */
+  .panel input[type="text"] {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid #e5e7eb;
+      padding: 9px 11px;
+      font-size: 0.9rem;
+      color: #111827;
+      outline: none;
+      background: #f9fafb;
+      transition: border-color 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+  }
+
+  .panel input[type="text"]:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.35);
+      background: #ffffff;
+  }
+
+  .form-actions {
+      margin-top: 6px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+  }
+
+  .btn-submit {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 22px;
+      border-radius: 999px;
+      border: none;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: #ffffff;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      box-shadow: 0 14px 30px rgba(37, 99, 235, 0.35);
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+  }
+
+  .btn-submit:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 18px 40px rgba(37, 99, 235, 0.4);
+  }
+
+  .btn-submit:active {
+      transform: translateY(0);
+      box-shadow: 0 12px 24px rgba(37, 99, 235, 0.35);
+  }
+
+  .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      border: 1px solid #e5e7eb;
+      background: #f9fafb;
+      color: #374151;
+      padding: 9px 16px;
+      font-size: 0.86rem;
+      font-weight: 500;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background 0.1s ease, border-color 0.1s ease, transform 0.08s ease;
+  }
+
+  .btn-secondary:hover {
+      background: #f3f4f6;
+      border-color: #d1d5db;
+      transform: translateY(-1px);
+  }
+
+  .btn-import {
+      border-radius: 999px;
+      border: 1px solid #e5e7eb;
+      background: #111827;
+      color: #f9fafb;
+      padding: 9px 16px;
+      font-size: 0.86rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.1s ease, transform 0.08s ease, box-shadow 0.08s ease;
+  }
+
+  .btn-import:hover {
+      background: #020617;
+      transform: translateY(-1px);
+      box-shadow: 0 16px 36px rgba(15, 23, 42, 0.4);
+  }
+
+  .btn-import i {
+      font-size: 0.8rem;
+  }
+
+  .edit-hint {
+      font-size: 0.8rem;
+      color: #6b7280;
+  }
+
+  /* Existing students list card */
+  .grades-panel {
+      background: #ffffff;
+      border-radius: 24px;
+      padding: 22px 24px 24px;
+      box-shadow: 0 20px 60px rgba(15, 23, 42, 0.12);
+  }
+
+  .grades-header {
+      margin-bottom: 12px;
+  }
+
+  .grades-header h2 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin: 0;
+      color: #111827;
+  }
+
+  .grades-header p {
+      margin: 2px 0 0;
+      font-size: 0.87rem;
+      color: #6b7280;
+  }
+
+  .grade-list {
+      margin-top: 10px;
+  }
+
+  .grade-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #f9fafb;
+      border-radius: 20px;
+      padding: 12px 16px;
+      margin-bottom: 12px;
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.10);
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
+  }
+
+  .grade-row:hover {
+      background: #eef2ff;
+      box-shadow: 0 20px 52px rgba(37, 99, 235, 0.25);
+      transform: translateY(-2px);
+  }
+
+  .grade-label {
+      font-weight: 600;
+      color: #111827;
+      font-size: 0.95rem;
+      min-width: 32px;
+  }
+
+  .grade-sections {
+      flex: 1;
+      font-size: 0.9rem;
+      color: #374151;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+  }
+
+  .section-pill {
+      background: #ffffff;
+      border-radius: 999px;
+      padding: 4px 10px;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.10);
+      font-size: 0.8rem;
+      color: #111827;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+  }
+
+  .section-count {
+      background: #e0f2fe;
+      color: #075985;
+      border-radius: 999px;
+      padding: 2px 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+  }
+
+  .grade-actions {
+      margin-left: 10px;
+      white-space: nowrap;
+  }
+
+  .btn-link {
+      border: none;
+      background: none;
+      color: #2563eb;
+      font-size: 0.85rem;
+      font-weight: 500;
+      text-decoration: none;
+      cursor: pointer;
+      padding: 6px 12px;
+      border-radius: 999px;
+      transition: background 0.12s ease, color 0.12s ease;
+  }
+
+  .btn-link:hover {
+      background: rgba(37, 99, 235, 0.08);
+      color: #1d4ed8;
+  }
+
+  .no-students-text {
+      font-size: 0.9rem;
+      color: #6b7280;
+      margin-top: 6px;
+  }
+
+  /* ICON BUTTONS */
+  .btn-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      border: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.1s ease;
+      color: #ffffff;
+      box-shadow: 0 10px 20px rgba(15, 23, 42, 0.25);
+  }
+
+  .btn-icon i {
+      pointer-events: none;
+  }
+
+  .btn-edit {
+      background: #22c55e;
+  }
+  .btn-edit:hover {
+      background: #16a34a;
+      transform: translateY(-1px);
+  }
+
+  .btn-delete {
+      background: #ef4444;
+  }
+  .btn-delete:hover {
+      background: #dc2626;
+      transform: translateY(-1px);
+  }
+
+  .import-hint {
+      font-size: 0.85rem;
+      color: #6b7280;
+      margin-bottom: 6px;
+  }
+
+  .modal-footer-note {
+      font-size: 0.8rem;
+      color: #9ca3af;
+      margin-top: 4px;
+  }
+
+  /* ========== STUDENT MODALS ========== */
+  .student-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+  }
+
+  .student-modal.is-open {
+      display: flex;
+  }
+
+  .student-modal-dialog {
+      background: #ffffff;
+      border-radius: 20px;
+      width: 720px;
+      max-width: 96%;
+      max-height: 80vh;
+      box-shadow: 0 30px 80px rgba(15, 23, 42, 0.55);
+      overflow-y: auto;    /* scroll inside modal */
+  }
+
+  .student-modal-inner {
+      padding: 18px 20px 16px;
+  }
+
+  .student-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+  }
+
+  .student-modal-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #0f172a;
+  }
+
+  .student-modal-subtitle {
+      font-size: 0.82rem;
+      color: #6b7280;
+  }
+
+  .student-modal-search {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+  }
+
+  .student-modal-search input {
+      border-radius: 999px;
+      border: 1px solid #e5e7eb;
+      padding: 6px 10px;
+      font-size: 0.82rem;
+      background: #f9fafb;
+      min-width: 180px;
+  }
+
+  .student-modal-search input:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.25);
+      background: #ffffff;
+  }
+
+  .student-modal-close {
+      border: none;
+      background: transparent;
+      font-size: 1.2rem;
+      cursor: pointer;
+      color: #6b7280;
+  }
+
+  .student-modal-body {
+      margin-top: 4px;
+  }
+
+  .modal-section-block {
+      background: #f9fafb;
+      border-radius: 16px;
+      padding: 10px 12px;
+      margin-bottom: 10px;
+  }
+
+  .modal-section-title {
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-bottom: 6px;
+      color: #111827;
+  }
+
+  .modal-student-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+  }
+
+  .modal-student-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 6px 10px;
+      margin-bottom: 4px;
+      box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+  }
+
+  .modal-student-name {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: #0f172a;
+  }
+
+  .modal-student-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+  }
+
+  /* mobile responsive overrides */
+  html, body { max-width: 100%; overflow-x: hidden; }
+
+  @media (max-width: 1024px){
+    .page-wrapper{ padding: 18px 18px 30px; }
+    .students-grid{
+      grid-template-columns: 1fr;
+      gap: 18px;
+    }
+  }
+
+  @media (max-width: 720px){
+    .page-wrapper{ padding: 16px 14px 26px; }
+
+    .page-header{
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .panel, .grades-panel{
+      padding: 16px 16px 18px;
+      border-radius: 18px;
+    }
+
+    .form-row-inline{
+      flex-direction: column;
+      gap: 12px;
+    }
+    .form-row-inline .form-group.mi-group{
+      flex: 1 1 auto;
+    }
+
+    .btn-submit, .btn-secondary, .btn-import{
+      width: 100%;
+      justify-content: center;
+    }
+
+    .grade-row{
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .grade-actions{
+      margin-left: 0;
+      width: 100%;
+      white-space: normal;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+    }
+    .btn-link{
+      padding: 8px 12px;
+    }
+
+    .btn-icon{
+      width: 34px;
+      height: 34px;
+      font-size: 0.9rem;
+    }
+
+    .student-modal-dialog{
+      width: 96%;
+      max-width: 96%;
+      max-height: 88vh;
+      border-radius: 16px;
+    }
+    .student-modal-inner{
+      padding: 14px 14px 12px;
+    }
+    .student-modal-header{
+      flex-wrap: wrap;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .student-modal-search{
+      width: 100%;
+      margin-left: 0;
+    }
+    .student-modal-search input{
+      width: 100%;
+      min-width: 0;
+      padding: 10px 12px;
+    }
+    .student-modal-close{
+      margin-left: auto;
+      font-size: 1.35rem;
+      padding: 6px 10px;
+    }
+
+    .modal-student-row{
+      gap: 10px;
+      flex-wrap: wrap;
+      padding: 10px 10px;
+    }
+    .modal-student-actions{
+      width: 100%;
+      justify-content: flex-end;
+    }
+
+    input, select, button{
+      min-height: 44px;
+    }
+  }
+</style>
+
+<div class="page-wrapper">
+  <div class="page-header">
+    <div>
+      <h1>Students</h1>
+      <div class="page-header-subtitle">
+        Add, update, and manage students by grade and section.
+      </div>
+    </div>
+    <a href="{% url 'user_dashboard' %}" class="btn-secondary">
+      <i class="fas fa-arrow-left"></i> Back to Dashboard
+    </a>
+  </div>
+
+  <div class="students-grid">
+    <div class="panel">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title">Add Student</div>
+        </div>
+      </div>
+
+      <form method="post" id="studentForm">
+        {% csrf_token %}
+        <input type="hidden" name="student_id" id="studentIdField"
+               value="{{ editing_student_id|default_if_none:'' }}">
+
+        <div class="form-group">
+          <label for="gradeSelect">Grade</label>
+          <select id="gradeSelect" class="form-control">
+            <option value="">Select grade</option>
+            {% for g in grades %}
+              <option value="{{ g.id }}">{{ g.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="sectionSelect">Section</label>
+          <select name="section" id="sectionSelect" class="form-control" required>
+            <option value="">---------</option>
+            {% for section in sections %}
+              <option value="{{ section.id }}"
+                      data-grade="{{ section.grade.id }}"
+                      {% if form.instance.pk and form.instance.section.id == section.id %}
+                          selected
+                      {% endif %}>
+                {{ section.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="id_full_name">Student Name (First Name):</label>
+          <input type="text"
+                 id="id_full_name"
+                 name="full_name"
+                 value="{{ form.full_name.value|default_if_none:'' }}"
+                 placeholder="e.g. Alyssa Grace"
+                 required>
+        </div>
+
+        <div class="form-row-inline">
+          <div class="form-group mi-group">
+            <label for="id_middle_initial">Middle Initial:</label>
+            <input type="text"
+                   id="id_middle_initial"
+                   name="middle_initial"
+                   maxlength="2"
+                   value="{{ form.middle_initial.value|default_if_none:'' }}"
+                   placeholder="M">
+          </div>
+
+          <div class="form-group">
+            <label for="id_last_name">Last Name:</label>
+            <input type="text"
+                   id="id_last_name"
+                   name="last_name"
+                   value="{{ form.last_name.value|default_if_none:'' }}"
+                   placeholder="e.g. Santos">
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn-submit" id="studentSubmitBtn"> 
+            Add Student
+          </button>
+
+          <button type="button"
+                  class="btn-import"
+                  id="openImportModalBtn">
+            Import List
+          </button>
+
+          <button type="button"
+                  id="cancelEditStudent"
+                  class="btn-secondary">
+            Cancel
+          </button>
+
+          <span class="edit-hint" id="editHint" style="display:none;">
+            Editing student. Make changes then click “Save changes” or press Cancel.
+          </span>
+        </div>
+      </form>
+    </div>
+
+    <div class="grades-panel">
+      <div class="grades-header">
+        <h2>Existing Students</h2>
+        <p>Click “View students” to manage the list per section.</p>
+      </div>
+
+      {% if grades_with_sections %}
+        <div class="grade-list">
+          {% for grade, section_groups in grades_with_sections.items %}
+            {% for sg in section_groups %}
+              <div class="grade-row">
+                <div class="grade-label">
+                  {{ sg.grouper.grade.name }}
+                </div>
+
+                <div class="grade-sections">
+                  <span class="section-pill">
+                    <span class="section-count">
+                      {{ sg.list|length }}
+                    </span>
+                    <span class="section-name">
+                      {{ sg.grouper.name }}
+                    </span>
+                  </span>
+                </div>
+
+                <div class="grade-actions" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+                  <a href="#"
+                    class="btn-link js-open-students"
+                    data-grade="{{ sg.grouper.grade.id }}"
+                    data-section="{{ sg.grouper.id }}">
+                    View students
+                  </a>
+
+                  <a href="{% url 'download_bubble_sheets_section' sg.grouper.id %}"
+                    class="btn-link"
+                    style="text-decoration:none;font-weight:700;">
+                    <i class="fas fa-download"></i> Bubble Sheets
+                  </a>
+                </div>
+
+              </div>
+            {% endfor %}
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="no-students-text">
+          No students added yet. Use the form on the left.
+        </p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="student-modal" id="studentsModal">
+  <div class="student-modal-dialog">
+    <div class="student-modal-inner">
+      <div class="student-modal-header">
+        <div>
+          <div class="student-modal-title" id="modalTitle"></div>
+          <div class="student-modal-subtitle">Students</div>
+        </div>
+
+        <div class="student-modal-search">
+          <input type="text"
+                 id="studentSearchInput"
+                 placeholder="Search student…">
+        </div>
+
+        <button type="button"
+                class="student-modal-close"
+                data-close="1">
+          &times;
+        </button>
+      </div>
+
+      <div class="student-modal-body" id="modalBody">
+        {% for grade, section_groups in grades_with_sections.items %}
+          {% for sg in section_groups %}
+            <div class="grade-actions" style="display:flex;justify-content:flex-end;gap:14px;align-items:center;">
+              <a href="#"
+                 class="btn-link js-open-students"
+                 data-grade="{{ sg.grouper.grade.id }}"
+                 data-section="{{ sg.grouper.id }}">
+                View students
+              </a>
+
+              <a href="{% url 'download_bubble_sheets_section' sg.grouper.id %}"
+                 class="btn-link"
+                 style="text-decoration:none;font-weight:700;">
+                <i class="fas fa-download"></i> Bubble sheets
+              </a>
+            </div>
+
+            <ul class="modal-student-list">
+              {% for student in sg.list %}
+                <li class="modal-student-row">
+                  <span class="modal-student-name">
+                    {% if student.last_name %}
+                      {{ student.last_name }}, {{ student.full_name }}
+                      {% if student.middle_initial %}
+                        {{ student.middle_initial }}.
+                      {% endif %}
+                    {% else %}
+                      {{ student.full_name }}
+                    {% endif %}
+                  </span>
+
+                  <span class="modal-student-actions">
+                    <button type="button"
+                            class="btn-icon btn-edit js-edit-student"
+                            title="Edit"
+                            data-student-id="{{ student.id }}"
+                            data-student-name="{{ student.full_name }}"
+                            data-grade-id="{{ student.section.grade.id }}"
+                            data-section-id="{{ student.section.id }}"
+                            data-last-name="{{ student.last_name }}"
+                            data-middle-initial="{{ student.middle_initial }}">
+                      <i class="fas fa-edit"></i>
+                    </button>
+
+                    <form action="{% url 'user_delete_student' student.id %}"
+                          method="post"
+                          onsubmit="return confirm('Delete {{ student.full_name }}?');">
+                      {% csrf_token %}
+                      <button type="submit"
+                              class="btn-icon btn-delete"
+                              title="Delete">
+                        <i class="fas fa-trash-alt"></i>
+                      </button>
+                    </form>
+                  </span>
+                </li>
+              {% empty %}
+                <li class="no-students-text">
+                  No students yet in this section.
+                </li>
+              {% endfor %}
+            </ul>
+          {% endfor %}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="student-modal" id="importModal">
+  <div class="student-modal-dialog">
+    <div class="student-modal-inner">
+      <div class="student-modal-header">
+        <div>
+          <div class="student-modal-title">Import Student List</div>
+          <div class="student-modal-subtitle">
+            Upload an Excel or PDF file for a specific grade and section.
+          </div>
+        </div>
+        <button type="button"
+                class="student-modal-close"
+                data-close="1">
+          &times;
+        </button>
+      </div>
+
+      <div class="student-modal-body">
+        <form method="post"
+              enctype="multipart/form-data"
+              action="{% url 'import_students_view' %}">
+          {% csrf_token %}
+
+          <div class="form-group">
+            <label for="importGrade">Grade</label>
+            <select id="importGrade" name="grade" class="form-control" required>
+              <option value="">Select grade</option>
+              {% for g in grades %}
+                <option value="{{ g.id }}">{{ g.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="importSection">Section</label>
+            <select id="importSection" name="section" class="form-control" required>
+              <option value="">---------</option>
+              {% for section in sections %}
+                <option value="{{ section.id }}"
+                        data-grade="{{ section.grade.id }}">
+                  {{ section.name }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="importFile">File</label>
+            <input type="file"
+                   name="student_file"
+                   id="importFile"
+                   class="form-control"
+                   accept=".xlsx,.xls,.csv,.pdf"
+                   required>
+          </div>
+
+          <div class="import-hint">
+            Select grade &amp; section, then upload an Excel / PDF file.
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn-submit">
+              Upload &amp; Import
+            </button>
+
+            <button type="button"
+                    class="btn-secondary student-modal-close"
+                    data-close="1">
+              Cancel
+            </button>
+          </div>
+
+          <div class="modal-footer-note">
+            Make sure your file follows the required student name format.
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    const gradeSelect   = document.getElementById('gradeSelect');
+    const sectionSelect = document.getElementById('sectionSelect');
+    const importGrade   = document.getElementById('importGrade');
+    const importSection = document.getElementById('importSection');
+
+    function filterSections(gradeSelectEl, sectionSelectEl) {
+      const selectedGrade = gradeSelectEl.value;
+      const options = sectionSelectEl.querySelectorAll('option');
+
+      options.forEach(opt => {
+        const gradeAttr = opt.getAttribute('data-grade');
+
+        if (!gradeAttr) {
+          opt.style.display = '';
+          return;
+        }
+
+        if (!selectedGrade || gradeAttr !== selectedGrade) {
+          opt.style.display = 'none';
+          if (opt.selected) opt.selected = false;
+        } else {
+          opt.style.display = '';
+        }
+      });
+
+      if (!selectedGrade) {
+        sectionSelectEl.value = '';
+        return;
+      }
+
+      const current = sectionSelectEl.options[sectionSelectEl.selectedIndex];
+      if (!current || current.style.display === 'none') {
+        const firstVisible = Array.from(options).find(opt =>
+          opt.style.display !== 'none' && opt.value
+        );
+        if (firstVisible) firstVisible.selected = true;
+        else sectionSelectEl.value = '';
+      }
+    }
+
+    if (gradeSelect && sectionSelect) {
+      filterSections(gradeSelect, sectionSelect);
+      gradeSelect.addEventListener('change', () => filterSections(gradeSelect, sectionSelect));
+    }
+
+    if (importGrade && importSection) {
+      filterSections(importGrade, importSection);
+      importGrade.addEventListener('change', () => filterSections(importGrade, importSection));
+    }
+
+    const studentsModal = document.getElementById('studentsModal');
+    const importModal   = document.getElementById('importModal');
+    const modalTitle    = document.getElementById('modalTitle');
+    const sectionBlocks = document.querySelectorAll('.js-section-block');
+    const studentSearchInput = document.getElementById('studentSearchInput');
+
+    function openStudentsModal(gradeId, sectionId, labelText) {
+      sectionBlocks.forEach(block => {
+        const g = block.getAttribute('data-grade');
+        const s = block.getAttribute('data-section');
+        block.style.display = (g === gradeId && s === sectionId) ? 'block' : 'none';
+      });
+
+      modalTitle.textContent = labelText;
+
+      if (studentSearchInput) studentSearchInput.value = '';
+      studentsModal.classList.add('is-open');
+    }
+
+    document.querySelectorAll('.js-open-students').forEach(link => {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        const gradeId   = this.getAttribute('data-grade');
+        const sectionId = this.getAttribute('data-section');
+        const labelText =
+          this.closest('.grade-row').querySelector('.grade-label').textContent.trim()
+          + ' – ' +
+          this.closest('.grade-row').querySelector('.section-pill .section-name').textContent.trim();
+        openStudentsModal(gradeId, sectionId, labelText);
+      });
+    });
+
+    document.querySelectorAll('.student-modal').forEach(modal => {
+      modal.addEventListener('click', function(e) {
+        if (e.target === modal || e.target.dataset.close === '1') {
+          modal.classList.remove('is-open');
+        }
+      });
+    });
+
+    const openImportModalBtn = document.getElementById('openImportModalBtn');
+    if (openImportModalBtn && importModal) {
+      openImportModalBtn.addEventListener('click', function() {
+        if (importGrade && importSection) filterSections(importGrade, importSection);
+        importModal.classList.add('is-open');
+      });
+    }
+
+    const studentForm      = document.getElementById('studentForm');
+    const studentIdField   = document.getElementById('studentIdField');
+    const studentSubmitBtn = document.getElementById('studentSubmitBtn');
+    const cancelEditBtn    = document.getElementById('cancelEditStudent');
+    const editHint         = document.getElementById('editHint');
+
+    function startEditStudent(data) {
+      if (!gradeSelect || !sectionSelect) return;
+
+      gradeSelect.value = data.gradeId;
+      filterSections(gradeSelect, sectionSelect);
+      sectionSelect.value = data.sectionId;
+
+      const fullNameInput   = document.getElementById('id_full_name');
+      const middleInitInput = document.getElementById('id_middle_initial');
+      const lastNameInput   = document.getElementById('id_last_name');
+
+      if (fullNameInput)   fullNameInput.value   = data.fullName || '';
+      if (middleInitInput) middleInitInput.value = data.middleInitial || '';
+      if (lastNameInput)   lastNameInput.value   = data.lastName || '';
+
+      studentIdField.value = data.id || '';
+
+      if (studentSubmitBtn) studentSubmitBtn.textContent = 'Save changes';
+      if (editHint) editHint.style.display = 'inline';
+    }
+
+    function cancelEdit() {
+      if (studentSubmitBtn) studentSubmitBtn.textContent = 'Add Student';
+      if (editHint) editHint.style.display = 'none';
+
+      studentIdField.value = '';
+      if (studentForm) studentForm.reset();
+
+      if (gradeSelect && sectionSelect) {
+        gradeSelect.value = '';
+        filterSections(gradeSelect, sectionSelect);
+      }
+    }
+
+    document.querySelectorAll('.js-edit-student').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const data = {
+          id: this.dataset.studentId,
+          fullName: this.dataset.studentName,
+          gradeId: this.dataset.gradeId,
+          sectionId: this.dataset.sectionId,
+          lastName: this.dataset.lastName || '',
+          middleInitial: this.dataset.middleInitial || ''
+        };
+        startEditStudent(data);
+        studentsModal.classList.remove('is-open');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    });
+
+    if (cancelEditBtn) cancelEditBtn.addEventListener('click', cancelEdit);
+
+    function filterStudents(term) {
+      const query = term.toLowerCase();
+      document.querySelectorAll('.js-section-block').forEach(block => {
+        if (block.style.display === 'none') return;
+
+        block.querySelectorAll('.modal-student-row').forEach(row => {
+          const nameEl = row.querySelector('.modal-student-name');
+          const text   = (nameEl?.textContent || '').toLowerCase();
+          row.style.display = (!query || text.includes(query)) ? 'flex' : 'none';
+        });
+      });
+    }
+
+    if (studentSearchInput) {
+      studentSearchInput.addEventListener('input', function () {
+        filterStudents(this.value);
+      });
+    }
+
+  })();
+  
+</script>
+{% endblock %}

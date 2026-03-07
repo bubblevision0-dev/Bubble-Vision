@@ -1,0 +1,50 @@
+{% extends "analysis/users/base.html" %}
+{% load static %}
+
+{% block content %}
+
+<link rel="stylesheet" href="{% static 'css/answer_key_list.css' %}">
+
+<div class="saved-keys-container">
+
+    <h2 class="title">Saved Answer Keys</h2>
+
+    {% for grade, sections in grouped.items %}
+        <div class="grade-group">
+            <h3 class="grade-title">Grade {{ grade.name }}</h3>
+
+            {% for section, keys in sections.items %}
+                <div class="section-group">
+                    <h4 class="section-title">Section: {{ section.name }}</h4>
+
+                    <table class="answer-table">
+                        <thead>
+                            <tr>
+                                <th>Subject</th>
+                                <th>Date Uploaded</th>
+                                <th>Preview</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for key in keys %}
+                                <tr>
+                                    <td>{{ key.subject.name }}</td>
+                                    <td>{{ key.uploaded_at|date:"M d, Y h:i A" }}</td>
+                                    <td>
+                                        <a class="preview-btn" href="{% url 'answer_key_review' key.id %}">
+                                            Preview Bubble Sheet
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+
+                </div>
+            {% endfor %}
+        </div>
+    {% endfor %}
+
+</div>
+
+{% endblock %}

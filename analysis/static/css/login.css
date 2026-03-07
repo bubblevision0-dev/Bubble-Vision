@@ -1,0 +1,169 @@
+/* --------------------------------------------------
+   MODERN SCHOOL LOGIN • LIGHT BLUE GLASSMORPHISM
+----------------------------------------------------*/
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Poppins', sans-serif;
+
+    /* Bright school-themed background */
+    background: url('../images/school-bg.jpg');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+}
+
+/* LIGHT BLUE OVERLAY (no gray) */
+.background-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(135, 188, 255, 0.45);   /* soft light-blue */
+    backdrop-filter: blur(4px);
+    z-index: 1;
+}
+
+/* MAIN WRAPPER */
+.login-wrapper {
+    position: relative;
+    z-index: 2;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+/* SCHOOL BRANDING */
+.branding-section {
+    text-align: center;
+    margin-bottom: 20px;
+    animation: fadeIn 1s ease-in-out;
+}
+
+.school-logo {
+    width: 200px;
+    filter: drop-shadow(0 4px 8px rgba(0, 80, 160, 0.6));
+}
+
+.school-name {
+    margin-top: 12px;
+    font-size: 26px;
+    font-weight: 700;
+    color: #003b73; /* deep school blue */
+    text-shadow: 0 2px 6px rgba(0, 72, 150, 0.4);
+}
+
+.school-subtitle {
+    color: #035fbe;
+    font-size: 15px;
+    margin-top: -5px;
+    margin-bottom: 20px;
+}
+
+/* LOGIN CARD (Light Blue Glassmorphism) */
+.login-card {
+    width: 400px;
+    padding: 35px 35px;
+    border-radius: 18px;
+
+    background: rgba(255, 255, 255, 0.35); /* brighter glass */
+    backdrop-filter: blur(18px);
+
+    border: 1px solid rgba(200, 230, 255, 0.7);
+    box-shadow:
+        0 10px 22px rgba(0, 105, 190, 0.25),
+        0 0 18px rgba(0, 155, 255, 0.25);
+
+    animation: slideUp 0.8s ease;
+    text-align: center;
+}
+
+/* TITLES */
+.login-title {
+    color: #003b73;
+    font-weight: 600;
+    font-size: 22px;
+    margin-bottom: 4px;
+}
+
+.login-sub {
+    color: #035fbe;
+    font-size: 14px;
+    margin-bottom: 22px;
+}
+
+/* FORM ELEMENTS */
+.form-label {
+    color: #003b73;
+    font-weight: 600;
+}
+
+.form-control {
+    background: rgba(240, 248, 255, 0.9); /* very light sky blue */
+    border-radius: 10px;
+    padding: 12px 14px;
+    border: 1px solid #82b6ff;
+}
+
+.form-control:focus {
+    border-color: #1e88ff;
+    box-shadow: 0 0 0 3px rgba(34, 140, 255, 0.3);
+}
+
+/* PASSWORD ICON */
+.password-wrapper {
+    position: relative;
+}
+
+.toggle-password {
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: #1c4fa3;
+}
+
+.toggle-password:hover {
+    color: #003b73;
+}
+
+/* LOGIN BUTTON */
+.btn-login {
+    width: 100%;
+    background: linear-gradient(135deg, #1e88ff, #3da8ff);
+    padding: 12px;
+    border-radius: 12px;
+    color: #fff;
+    font-weight: 600;
+    transition: 0.3s;
+    border: none;
+}
+
+.btn-login:hover {
+    background: #0c66c2;
+    box-shadow: 0 4px 12px rgba(0, 105, 190, 0.35);
+}
+
+/* ANIMATIONS */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(50px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* RESPONSIVE */
+@media (max-width: 480px) {
+    .login-card {
+        width: 90%;
+        padding: 28px 25px;
+    }
+}

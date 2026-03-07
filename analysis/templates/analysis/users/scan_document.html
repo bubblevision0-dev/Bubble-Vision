@@ -1,0 +1,232 @@
+{% extends 'analysis/users/base.html' %}
+{% load static %}
+
+{% block title %}Scan Bubble Sheet{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/answer_key.css' %}">
+
+<div class="page-header">
+    <div>
+        <h2>Scan Bubble Test Sheet</h2>
+        <p class="subtitle">
+            Capture or upload a clear photo of the student's bubble sheet for:
+            <strong>{{ answer_key.grade.name }}</strong> -
+            <strong>{{ answer_key.section.name }}</strong> -
+            <strong>{{ answer_key.subject.name }}</strong>.
+        </p>
+    </div>
+    <div>
+        <a href="{% url 'user_capture' answer_key.grade.id answer_key.section.id answer_key.subject.id %}{% if gp_id %}?gp={{ gp_id }}{% endif %}"
+           class="btn-secondary">View Scan History</a>
+    </div>
+</div>
+
+<div class="card answer-key-container">
+
+    {% if error %}
+        <div class="alert alert-error">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data" id="scanForm">
+        {% csrf_token %}
+        <input type="hidden" name="gp" value="{{ gp_id }}">
+        <input type="hidden" name="mode" value="{{ mode|default:'save' }}">
+        
+        <input type="hidden" name="student_id" id="hidden_student_id" value="{{ selected_student_id|default:'' }}">
+
+        {% if mode == 'rescan' and rescan_scan %}
+            <input type="hidden" name="rescan_id" value="{{ rescan_scan.id }}">
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label>Re-scanning for:</label>
+                <div class="auto-scan-pill">
+                    <i class="fas fa-user"></i> {{ rescan_scan.student_name }}
+                </div>
+                <div class="upload-group" style="margin-top: 15px;">
+                    <label class="custom-file-upload main-upload-btn">
+                        <i class="fas fa-camera"></i> Capture New Image
+                        <input type="file" name="sheet_image" class="row-file-input" accept="image/*" capture="environment">
+                    </label>
+                </div>
+            </div>
+        {% else %}
+            <div class="form-group student-search-group" style="margin-bottom: 12px;">
+                <label for="studentSearch">Quick Search Student</label>
+                <input type="text" id="studentSearch" class="form-control student-search-input" autocomplete="off" placeholder="Type student name to filter list...">
+            </div>
+
+            <div id="studentContainer" class="student-table-container">
+                {% if students %}
+                <table class="student-table">
+                    <thead>
+                        <tr>
+                            <th>Student Name</th>
+                            <th style="width: 150px; text-align: center;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in students %}
+                        {% with full_name=s.last_name|add:", "|add:s.full_name %}
+                        <tr class="student-row" 
+                            data-id="{{ s.id }}" 
+                            data-name="{% if s.last_name %}{{ s.last_name }}, {{ s.full_name }}{% if s.middle_initial %} {{ s.middle_initial }}.{% endif %}{% else %}{{ s.full_name }}{% endif %}">
+                            <td class="student-name-cell">
+                                {% if s.last_name %}
+                                    {{ s.last_name }}, {{ s.full_name }}{% if s.middle_initial %} {{ s.middle_initial }}.{% endif %}
+                                {% else %}
+                                    {{ s.full_name }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                <label class="row-scan-btn">
+                                    <i class="fas fa-camera"></i> Scan
+                                    <input type="file" name="sheet_image" class="row-file-input" accept="image/*" capture="environment">
+                                </label>
+                            </td>
+                        </tr>
+                        {% endwith %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <div id="noStudentResults" class="student-no-results">No students match your search.</div>
+                {% else %}
+                <div class="student-no-results" style="display:block;">No students found in this section.</div>
+                {% endif %}
+            </div>
+        {% endif %}
+
+        <div id="loadingOverlay" class="loading-overlay">
+            <div class="spinner"></div>
+            <p>Processing Bubble Sheet...</p>
+        </div>
+    </form>
+</div>
+
+<style>
+/* Page & Layout */
+.btn-secondary { border-radius: 999px; padding: 6px 14px; background: #e5e7eb; font-size: 12px; font-weight: 600; text-decoration: none; color: #374151; }
+.btn-secondary:hover { background: #d1d5db; }
+
+/* Table Styles */
+.student-table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
+.student-table th { background: #f8fafc; padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; color: #64748b; font-size: 13px; }
+.student-table td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+.student-row:hover { background-color: #f0f7ff; }
+
+/* The "Action" Button style */
+.row-scan-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: #2563eb;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.2s;
+    margin: 0 auto;
+}
+.row-scan-btn:hover { background: #1d4ed8; transform: translateY(-1px); }
+.row-file-input { display: none; }
+
+/* Loading State */
+.loading-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(255,255,255,0.8);
+    z-index: 9999;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+.spinner {
+    width: 40px; height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #2563eb;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+.auto-scan-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-weight: 600;
+}
+.student-no-results { display: none; padding: 20px; text-align: center; color: #94a3b8; }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById("scanForm");
+    const searchInput = document.getElementById("studentSearch");
+    const hiddenStudentInput = document.getElementById("hidden_student_id");
+    const loadingOverlay = document.getElementById("loadingOverlay");
+    const studentRows = document.querySelectorAll(".student-row");
+
+    // 1. FILTER LOGIC
+    if (searchInput) {
+        searchInput.addEventListener("input", function() {
+            const query = this.value.toLowerCase();
+            let visibleCount = 0;
+
+            studentRows.forEach(row => {
+                const name = row.getAttribute("data-name").toLowerCase();
+                if (name.includes(query)) {
+                    row.style.display = "";
+                    visibleCount++;
+                } else {
+                    row.style.display = "none";
+                }
+            });
+
+            const noRes = document.getElementById("noStudentResults");
+            if (noRes) noRes.style.display = visibleCount > 0 ? "none" : "block";
+        });
+    }
+
+    // 2. FILE SELECTION & AUTO-SUBMIT
+    // We listen for changes on ANY file input with class .row-file-input
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('row-file-input')) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Find the student ID from the row this button belongs to
+            // If in rescan mode, the ID might already be set or in the row
+            const row = e.target.closest('.student-row');
+            
+            if (row) {
+                const studentId = row.getAttribute('data-id');
+                hiddenStudentInput.value = studentId;
+            }
+
+            // Show loading and submit
+            loadingOverlay.style.display = "flex";
+            form.submit();
+        }
+    });
+
+    // 3. ROW CLICK (Optional: clicking the row also triggers the file picker)
+    studentRows.forEach(row => {
+        row.addEventListener('click', function(e) {
+            // Prevent triggering if they clicked the actual Scan button (to avoid double trigger)
+            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'LABEL' && e.target.tagName !== 'I') {
+                const fileInput = this.querySelector('.row-file-input');
+                if (fileInput) fileInput.click();
+            }
+        });
+    });
+});
+</script>
+
+{% endblock %}

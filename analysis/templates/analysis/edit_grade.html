@@ -1,0 +1,18 @@
+{% extends 'analysis/base.html' %}
+{% load static %}
+{% block content %}
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="{% static 'css/grade.css' %}">
+
+<div class="grade-container">
+  <h2>Edit Grade: {{ grade.name }}</h2>
+
+  <form method="post" class="grade-form">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn-submit">Save Changes</button>
+    <a href="{% url 'add_grade' %}" class="btn-cancel">Cancel</a>
+  </form>
+</div>
+{% endblock %}

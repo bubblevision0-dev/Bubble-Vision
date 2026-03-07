@@ -1,0 +1,394 @@
+{% load static %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/answer_key.css' %}">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+  :root{
+    --ak-bg: #f6f9ff;
+    --ak-card: #ffffff;
+    --ak-text: #0f172a;
+    --ak-muted: #64748b;
+    --ak-border: #e2e8f0;
+    --ak-soft: #f1f5f9;
+    --ak-shadow: 0 18px 45px rgba(15,23,42,.08);
+    --ak-radius: 18px;
+  }
+
+  /* Page wrapper */
+  .ak-review-page{
+    padding: 18px;
+    background: var(--ak-bg);
+    border-radius: 22px;
+  }
+
+  /* Header card */
+  .ak-review-header-card{
+    background: var(--ak-card);
+    border: 1px solid var(--ak-border);
+    border-radius: var(--ak-radius);
+    box-shadow: var(--ak-shadow);
+    padding: 18px 18px;
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap: 14px;
+  }
+
+  .ak-review-main{
+    min-width: 0;
+  }
+
+  .ak-review-subtitle{
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--ak-muted);
+    font-weight: 600;
+    line-height: 1.35;
+    word-break: break-word;
+  }
+
+  /* Chips */
+  .ak-chip-row{
+    margin-top: 10px;
+    display:flex;
+    flex-wrap:wrap;
+    gap: 8px;
+  }
+
+  .ak-chip{
+    display:inline-flex;
+    align-items:center;
+    gap: 6px;
+    background: var(--ak-soft);
+    border: 1px solid rgba(148,163,184,.35);
+    padding: 7px 12px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #334155;
+    white-space: nowrap;
+  }
+
+  /* Card */
+  .ak-card{
+    margin-top: 16px;
+    background: var(--ak-card);
+    border: 1px solid var(--ak-border);
+    border-radius: var(--ak-radius);
+    box-shadow: var(--ak-shadow);
+    padding: 16px 16px;
+  }
+
+  .empty-message{
+    margin: 0;
+    padding: 12px 12px;
+    border-radius: 14px;
+    background: #f8fafc;
+    border: 1px dashed var(--ak-border);
+    color: var(--ak-muted);
+    font-weight: 700;
+    font-size: .92rem;
+  }
+
+  /* Table */
+  .ak-review-page .table-container{
+    margin-top: 12px;
+    overflow-x:auto;
+    border: 1px solid var(--ak-border);
+    border-radius: 14px;
+    background: #fff;
+  }
+
+  .ak-review-page table{
+    width:100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.92rem;
+  }
+
+  .ak-review-page thead th{
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #f8fafc;
+    color: #334155;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+    font-size: 0.75rem;
+    border-bottom: 1px solid var(--ak-border);
+    padding: 12px 12px;
+    white-space: nowrap;
+  }
+
+  .ak-review-page tbody td{
+    padding: 12px 12px;
+    border-bottom: 1px solid rgba(226,232,240,.85);
+    color: var(--ak-text);
+    font-weight: 600;
+  }
+
+  .ak-review-page tbody tr:nth-child(odd){
+    background: #ffffff;
+  }
+  .ak-review-page tbody tr:nth-child(even){
+    background: #fbfdff;
+  }
+
+  .ak-review-page tbody tr:hover{
+    background: #eef2ff;
+  }
+
+  /* Numeric columns look cleaner */
+  .ak-review-page td:nth-child(1),
+  .ak-review-page td:nth-child(3),
+  .ak-review-page td:nth-child(4){
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Difficulty / Decisions if you add them later */
+  .easy { color: #16a34a; font-weight: 900; }
+  .moderate { color: #eab308; font-weight: 900; }
+  .difficult { color: #dc2626; font-weight: 900; }
+  .retain { color: #16a34a; font-weight: 900; }
+  .revise { color: #dc2626; font-weight: 900; }
+
+  /* Buttons if you ever add them */
+  .ak-review-page .btn-secondary,
+  .ak-review-page .btn-primary,
+  .ak-review-page .btn-success{
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 800;
+    cursor: pointer;
+    text-decoration:none;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap: 8px;
+    border: 1px solid transparent;
+  }
+
+  .ak-review-page .btn-secondary{
+    background: #f1f5f9;
+    color: #0f172a;
+    border-color: rgba(148,163,184,.35);
+  }
+  .ak-review-page .btn-secondary:hover{ filter: brightness(.98); }
+
+  .ak-review-page .btn-primary{
+    background: #2563eb;
+    color: #fff;
+  }
+  .ak-review-page .btn-primary:hover{ filter: brightness(.95); }
+
+  .ak-review-page .btn-success{
+    background: #16a34a;
+    color: #fff;
+  }
+  .ak-review-page .btn-success:hover{ filter: brightness(.95); }
+
+  /* Mobile */
+  @media (max-width: 768px){
+    .ak-review-page{ padding: 14px; }
+    .ak-review-header-card{ padding: 14px; }
+    .ak-chip{ white-space: normal; }
+    .ak-review-page table{ font-size: .88rem; }
+    .ak-review-page thead th{ font-size: .72rem; padding: 10px; }
+    .ak-review-page tbody td{ padding: 10px; }
+  }
+
+  /* Print */
+  @media print{
+    .ak-review-page{ background: #fff; padding: 0; }
+    .ak-review-header-card, .ak-card{ box-shadow:none; border: 1px solid #ddd; }
+    .ak-review-page thead th{ position: static; }
+  }
+</style>
+
+
+<!-- ===== HEADER ===== -->
+<div class="ak-review-header-card">
+  <div class="ak-review-main">
+    <p class="ak-review-subtitle">
+      Grade <strong>{{ grade.name }}</strong> •
+      Section <strong>{{ section.name }}</strong> •
+      <strong>{{ subject.name }}</strong>
+    </p>
+
+    <div class="ak-chip-row">
+      <span class="ak-chip">
+        Grading:
+        {% if grading_period %}
+          {{ grading_period.period }}
+        {% else %}
+          —
+        {% endif %}
+      </span>
+
+      <span class="ak-chip">Total Students: {{ total_students }}</span>
+      <span class="ak-chip">Total Items: {{ item_stats|length }}</span>
+    </div>
+  </div>
+</div>
+
+
+
+  <!-- ===== ITEM ANALYSIS TABLE ===== -->
+  <div class="ak-card" style="margin-top:16px;">
+    {% if total_students == 0 %}
+      <p class="empty-message">
+        No scanned sheets yet. Scan at least one bubble sheet to see item analysis.
+      </p>
+    {% elif not item_stats %}
+      <p class="empty-message">
+        No answer key items found. Please set up the answer key first.
+      </p>
+    {% else %}
+      <div class="table-container" style="overflow-x:auto;">
+        <table class="table table-sm" style="width:100%; font-size:0.9rem;">
+          <thead>
+            <tr>
+              <th style="white-space:nowrap;">Item #</th>
+              <th style="white-space:nowrap;">Correct Answer</th>
+              <th style="white-space:nowrap;"># Correct</th>
+              <th style="white-space:nowrap;">% Correct</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in item_stats %}
+              <tr>
+                <td>{{ item.number }}</td>
+                <td>{{ item.correct_choice }}</td>
+                <td>{{ item.n_correct }}</td>
+                <td>{{ item.percent|floatformat:1 }}%</td>
+
+          
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<style>
+  .ak-chip-row { margin-top: 8px; display:flex; flex-wrap:wrap; gap:8px; }
+
+  .ak-chip {
+    background-color: #f1f5f9;
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 0.875rem;
+    color: #4b5563;
+  }
+
+  .ak-review-header-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding: 16px;
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    gap: 12px;
+  }
+
+  .ak-review-main h2 { font-size: 1.75rem; font-weight: 600; margin:0; }
+
+  .ak-review-subtitle { font-size: 1rem; color: #6b7280; margin: 6px 0 0; }
+
+  .btn-secondary, .btn-primary, .btn-success {
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    cursor: pointer;
+  }
+
+  .btn-secondary {
+    background-color: #f3f4f6;
+    color: #4b5563;
+    border: 1px solid #e5e7eb;
+    text-decoration:none;
+  }
+
+  .btn-primary {
+    background-color: #3b82f6;
+    color: #ffffff;
+    border: none;
+    text-decoration:none;
+  }
+
+  .btn-success {
+    background-color: #28a745;
+    color: #ffffff;
+    border: none;
+  }
+
+  .btn-secondary:hover { background-color: #e5e7eb; }
+  .btn-primary:hover { background-color: #2563eb; }
+  .btn-success:hover { background-color: #218838; }
+
+  .ak-card {
+    background-color: #ffffff;
+    padding: 16px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+
+  .empty-message { font-size: 0.9rem; color: #6b7280; margin-top: 16px; }
+
+  .table-container { margin-top: 16px; }
+
+  table { width: 100%; border-collapse: collapse; }
+
+  th, td {
+    padding: 8px;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  th {
+    background-color: #f3f4f6;
+    font-weight: 600;
+    color: #4b5563;
+  }
+
+  .easy { color: #16a34a; font-weight: 600; }
+  .moderate { color: #eab308; font-weight: 600; }
+  .difficult { color: #dc2626; font-weight: 600; }
+
+  .retain { color: #4caf50; font-weight: 600; }
+  .revise { color: #dc2626; font-weight: 600; }
+
+  @media (max-width: 768px) {
+    table { font-size: 0.8rem; }
+    th, td { padding: 6px; }
+    .ak-review-header-card { flex-direction: column; align-items: flex-start; }
+  }
+
+  @media print {
+    canvas { width: 80px !important; height: 40px !important; }
+  }
+</style>
+
+<script>
+  function printResult() {
+    document.querySelectorAll('button, .ak-review-right').forEach(function(el) {
+      el.style.display = 'none';
+    });
+
+    window.print();
+
+    document.querySelectorAll('button, .ak-review-right').forEach(function(el) {
+      el.style.display = '';
+    });
+  }
+</script>
+
+{% endblock %}

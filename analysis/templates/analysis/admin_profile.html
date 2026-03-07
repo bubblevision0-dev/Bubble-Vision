@@ -1,0 +1,212 @@
+{% extends "analysis/base.html" %}
+{% load static %}
+
+{% block title %}My Profile | Item Analysis System{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/profile.css' %}">
+
+<div class="page-header">
+    <div>
+        <h2>My Profile</h2>
+        <p class="subtitle">View your administrator account information and update your password.</p>
+    </div>
+</div>
+
+<div class="profile-grid">
+
+    <!-- LEFT: Avatar + main info -->
+    <section class="card profile-main">
+        <div class="profile-avatar">
+            {% if request.user.profile.image %}
+                <img src="{{ request.user.profile.image.url }}" alt="Profile picture">
+            {% else %}
+                <span class="avatar-initial">
+                    {{ request.user.username|slice:":1"|upper }}
+                </span>
+            {% endif %}
+        </div>
+
+        <h1 class="profile-fullname">
+            {% if request.user.first_name or request.user.last_name %}
+                {{ request.user.first_name }} {{ request.user.last_name }}
+            {% else %}
+                {{ request.user.username }}
+            {% endif %}
+        </h1>
+
+        <span class="profile-username">@{{ request.user.username }}</span>
+
+        <span class="role-pill">
+            <i class="fas fa-user-shield"></i>
+            Administrator
+        </span>
+
+        <div class="profile-meta">
+            <div class="meta-item">
+                <i class="fas fa-calendar-plus"></i>
+                <span>Joined {{ request.user.date_joined|date:"M d, Y" }}</span>
+            </div>
+            <div class="meta-item">
+                <i class="fas fa-clock"></i>
+                <span>
+                    Last login:
+                    {% if request.user.last_login %}
+                        {{ request.user.last_login|date:"M d, Y - h:i A" }}
+                    {% else %}
+                        —
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+    </section>
+
+    <!-- RIGHT COLUMN: account details + change password -->
+    <div class="profile-right-column">
+
+        <!-- Account details -->
+        <section class="card profile-details">
+            <h3 class="section-title">Account details</h3>
+
+            <dl class="detail-list">
+                <div class="detail-row">
+                    <dt><i class="fas fa-id-card"></i> Full name</dt>
+                    <dd>
+                        {% if request.user.first_name or request.user.last_name %}
+                            {{ request.user.first_name }} {{ request.user.last_name }}
+                        {% else %}
+                            Not set
+                        {% endif %}
+                    </dd>
+                </div>
+
+                <div class="detail-row">
+                    <dt><i class="fas fa-envelope"></i> Email</dt>
+                    <dd>{{ request.user.email|default:"Not set" }}</dd>
+                </div>
+
+                <div class="detail-row">
+                    <dt><i class="fas fa-user"></i> Username</dt>
+                    <dd>{{ request.user.username }}</dd>
+                </div>
+
+                <div class="detail-row">
+                    <dt><i class="fas fa-shield-halved"></i> Role</dt>
+                    <dd>Administrator</dd>
+                </div>
+            </dl>
+
+            <div class="hint-text">
+                Basic account details come from your user record. Contact the system administrator
+                if these need to be changed.
+            </div>
+        </section>
+
+        <!-- Change password -->
+        <section class="card profile-password">
+            <h3 class="section-title">
+                <i class="fas fa-lock"></i> Change password
+            </h3>
+
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="profile-alert profile-alert-{{ message.tags }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <form method="post" class="password-form">
+                {% csrf_token %}
+
+                {% if password_form.non_field_errors %}
+                    <div class="profile-alert profile-alert-error">
+                        {% for err in password_form.non_field_errors %}
+                            {{ err }}<br>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <!-- Old password -->
+                <div class="password-row">
+                    {{ password_form.old_password.label_tag }}
+                    <div class="password-input-wrapper">
+                        {{ password_form.old_password }}
+                        <button type="button"
+                                class="password-toggle"
+                                data-target="id_old_password">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                    {% for err in password_form.old_password.errors %}
+                        <p class="field-error">{{ err }}</p>
+                    {% endfor %}
+                </div>
+
+                <!-- New password -->
+                <div class="password-row">
+                    {{ password_form.new_password1.label_tag }}
+                    <div class="password-input-wrapper">
+                        {{ password_form.new_password1 }}
+                        <button type="button"
+                                class="password-toggle"
+                                data-target="id_new_password1">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                    {% for err in password_form.new_password1.errors %}
+                        <p class="field-error">{{ err }}</p>
+                    {% endfor %}
+                </div>
+
+                <!-- Confirm new password -->
+                <div class="password-row">
+                    {{ password_form.new_password2.label_tag }}
+                    <div class="password-input-wrapper">
+                        {{ password_form.new_password2 }}
+                        <button type="button"
+                                class="password-toggle"
+                                data-target="id_new_password2">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                    {% for err in password_form.new_password2.errors %}
+                        <p class="field-error">{{ err }}</p>
+                    {% endfor %}
+                </div>
+
+                <button type="submit" class="btn-password-submit">
+                    <i class="fas fa-key"></i>
+                    Update password
+                </button>
+            </form>
+        </section>
+
+
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    document.querySelectorAll(".password-toggle").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const targetId = btn.getAttribute("data-target");
+            const input = document.getElementById(targetId);
+            const icon = btn.querySelector("i");
+            if (!input) return;
+
+            if (input.type === "password") {
+                input.type = "text";
+                icon.classList.remove("fa-eye");
+                icon.classList.add("fa-eye-slash");
+            } else {
+                input.type = "password";
+                icon.classList.remove("fa-eye-slash");
+                icon.classList.add("fa-eye");
+            }
+        });
+    });
+});
+</script>
+
+{% endblock %}

@@ -1,0 +1,229 @@
+{% extends "analysis/users/base.html" %}
+{% load static %}
+
+{% block title %}My Profile | BubbleVision{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/user_profile.css' %}">
+
+<style>
+/* Blue Save/Update button (same as Edit Grade) */
+.btn-update-password {
+    background: linear-gradient(90deg, #2563eb, #1d4ed8);
+    color: #ffffff;
+    padding: 10px 22px;
+    border-radius: 999px;
+    border: none;
+    cursor: pointer;
+    font-weight: 500;
+    box-shadow: 0 12px 24px rgba(37, 99, 235, 0.25);
+    transition: all 0.20s ease;
+}
+
+.btn-update-password:hover {
+    background: linear-gradient(90deg, #1d4ed8, #1e40af);
+    transform: translateY(1px);
+    box-shadow: 0 10px 20px rgba(37, 99, 235, 0.30);
+}
+
+/* Back Button Styling */
+.btn-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    color: #374151;
+    font-size: 0.86rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.btn-back:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+    transform: translateX(-3px);
+}
+
+/* Role badge styles */
+.role-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.role-admin {
+    background: #e0edff;
+    color: #1d4ed8;
+}
+
+.role-teacher {
+    background: #e8fbe8;
+    color: #059669;
+}
+
+/* Password field icon positioning */
+.password-input-wrapper {
+    position: relative;
+}
+.password-input-wrapper input {
+    width: 100%;
+    padding-right: 40px;
+}
+.toggle-password {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: #6b7280;
+}
+</style>
+
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
+    <div>
+        <h2>My Profile</h2>
+        <p class="subtitle">View your account details and update your password.</p>
+    </div>
+    <div>
+        <a href="{% url 'user_dashboard' %}" class="btn-back">
+            <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+</div>
+
+<div class="profile-page">
+
+    <section class="card profile-card">
+        <div class="profile-card-header">
+            <div class="profile-avatar">
+                {% if request.user.profile.image %}
+                    <img src="{{ request.user.profile.image.url }}" alt="Profile picture">
+                {% else %}
+                    <span class="avatar-initial">
+                        {{ request.user.username|slice:":1"|upper }}
+                    </span>
+                {% endif %}
+            </div>
+
+            <div class="profile-main-info">
+                <h3>{{ request.user.get_full_name|default:request.user.username }}</h3>
+
+                {% if request.user.is_superuser %}
+                    <span class="role-pill role-admin">
+                        <i class="fas fa-shield-alt"></i> Admin
+                    </span>
+                {% else %}
+                    <span class="role-pill role-teacher">
+                        <i class="fas fa-chalkboard-teacher"></i> Teacher
+                    </span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="profile-details">
+            <div class="detail-row">
+                <span class="detail-label">Username</span>
+                <span class="detail-value">{{ request.user.username }}</span>
+            </div>
+
+            <div class="detail-row">
+                <span class="detail-label">Email</span>
+                <span class="detail-value">
+                    {{ request.user.email|default:"— not set —" }}
+                </span>
+            </div>
+
+            <div class="detail-row">
+                <span class="detail-label">Last login</span>
+                <span class="detail-value">
+                    {{ request.user.last_login|date:"M d, Y - h:i A"|default:"—" }}
+                </span>
+            </div>
+
+            <div class="detail-row">
+                <span class="detail-label">Date joined</span>
+                <span class="detail-value">
+                    {{ request.user.date_joined|date:"M d, Y" }}
+                </span>
+            </div>
+        </div>
+    </section>
+
+    <section class="card password-card">
+        <h3 class="card-title">
+            <i class="fas fa-lock"></i> Change Password
+        </h3>
+        <p class="card-subtitle">
+            Use a strong, unique password to keep your account secure.
+        </p>
+
+        <form method="post" class="profile-password-form">
+            {% csrf_token %}
+            {{ password_form.non_field_errors }}
+
+            <div class="field-group">
+                <label for="{{ password_form.old_password.id_for_label }}">Current password</label>
+                <div class="password-input-wrapper">
+                    {{ password_form.old_password }}
+                    <i class="fas fa-eye toggle-password" data-target="{{ password_form.old_password.id_for_label }}"></i>
+                </div>
+                {{ password_form.old_password.errors }}
+            </div>
+
+            <div class="field-group">
+                <label for="{{ password_form.new_password1.id_for_label }}">New password</label>
+                <div class="password-input-wrapper">
+                    {{ password_form.new_password1 }}
+                    <i class="fas fa-eye toggle-password" data-target="{{ password_form.new_password1.id_for_label }}"></i>
+                </div>
+                {{ password_form.new_password1.errors }}
+            </div>
+
+            <div class="field-group">
+                <label for="{{ password_form.new_password2.id_for_label }}">Confirm new password</label>
+                <div class="password-input-wrapper">
+                    {{ password_form.new_password2 }}
+                    <i class="fas fa-eye toggle-password" data-target="{{ password_form.new_password2.id_for_label }}"></i>
+                </div>
+                {{ password_form.new_password2.errors }}
+            </div>
+
+            <button type="submit" class="btn-update-password">
+                Update Password
+            </button>
+        </form>
+    </section>
+
+</div>
+
+<script>
+// Show/hide passwords
+document.addEventListener("DOMContentLoaded", () => {
+    document.querySelectorAll(".toggle-password").forEach(icon => {
+        icon.addEventListener("click", () => {
+            const targetId = icon.getAttribute("data-target");
+            const input = document.getElementById(targetId);
+
+            if (input.type === "password") {
+                input.type = "text";
+                icon.classList.remove("fa-eye");
+                icon.classList.add("fa-eye-slash");
+            } else {
+                input.type = "password";
+                icon.classList.remove("fa-eye-slash");
+                icon.classList.add("fa-eye");
+            }
+        });
+    });
+});
+</script>
+
+{% endblock %}

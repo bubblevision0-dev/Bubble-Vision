@@ -1,0 +1,300 @@
+{% extends "analysis/users/base.html" %}
+{% load static %}
+
+{% block title %}Scan Bubble Sheet{% endblock %}
+
+{% block content %}
+<style>
+  .page-header {
+      margin: 20px 0 16px;
+  }
+  .page-header h2 {
+      font-weight: 600;
+      margin-bottom: 4px;
+  }
+  .page-header .subtitle {
+      color: #666;
+      font-size: 0.9rem;
+  }
+
+  .scan-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      max-width: 960px;
+      margin: 0 auto 32px;
+  }
+
+  .camera-wrapper {
+      position: relative;
+      width: 100%;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #000;
+  }
+
+  #cameraStream {
+      width: 100%;
+      display: block;
+  }
+
+  /* Green sensor overlay */
+  .sensor-overlay {
+      pointer-events: none;
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+  }
+
+  .sensor-frame {
+      width: 86%;
+      aspect-ratio: 913 / 483; /* same as sheet */
+      border: 3px solid rgba(0, 200, 0, 0.8);
+      border-radius: 12px;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,0.25);
+      position: relative;
+  }
+
+  .sensor-hint {
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.8rem;
+      color: #e0ffe0;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  }
+
+  .scan-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 12px;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 0.85rem;
+      color: #666;
+  }
+
+  .scan-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+  }
+
+  .btn-capture {
+      border: none;
+      border-radius: 999px;
+      padding: 8px 20px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #00a86b;
+      color: #fff;
+      cursor: pointer;
+  }
+  .btn-capture:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+  }
+
+  .btn-secondary {
+      border-radius: 999px;
+      padding: 8px 18px;
+      font-size: 0.85rem;
+      border: 1px solid #ccc;
+      background: #f8f8f8;
+      color: #444;
+      cursor: pointer;
+  }
+
+  .status-text {
+      min-height: 1em;
+  }
+    .orientation-warning {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      color: #fff;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+      z-index: 9999;
+      font-size: 1rem;
+  }
+  .orientation-warning.visible {
+      display: flex;
+  }
+
+</style>
+
+<div class="page-header">
+  <h2>Scan Bubble Sheet</h2>
+  <p class="subtitle">
+    Align the sheet so that all <strong>4 black boxes</strong> are inside the green frame,
+    then tap <strong>Capture</strong>. The system will auto-crop and zoom the bubbles area.
+  </p>
+  <p class="subtitle">
+    <strong>For:</strong>
+    {{ grade.name }} – {{ section.name }} – {{ subject.name }}
+  </p>
+</div>
+
+<div class="scan-card">
+  <div class="camera-wrapper">
+      <!-- Live camera preview -->
+      <video id="cameraStream" autoplay playsinline></video>
+
+      <!-- Overlay frame -->
+      <div class="sensor-overlay">
+        <div class="sensor-frame">
+          <div class="sensor-hint">
+            Make sure all 4 corner boxes are visible.
+          </div>
+        </div>
+      </div>
+  </div>
+
+  <form id="captureForm" method="post">
+    {% csrf_token %}
+    <input type="hidden" name="image_data" id="imageData">
+
+    <div class="scan-footer">
+      <div class="status-text" id="cameraStatus">
+        Initializing camera…
+      </div>
+
+      <div class="scan-actions">
+        <button type="button"
+                class="btn-secondary"
+                onclick="window.history.back();">
+          Back
+        </button>
+
+        <div id="orientationWarning" class="orientation-warning">
+  <div>
+    <strong>Please rotate your device.</strong><br><br>
+    For best results, hold your phone in <strong>landscape</strong>
+    so the sheet is wide and the text “BUBBLE VISION” reads normally.
+  </div>
+</div>
+
+
+        <button type="button"
+                id="captureBtn"
+                class="btn-capture"
+                disabled>
+          <i class="fa fa-camera"></i>
+          <span>Capture</span>
+        </button>
+      </div>
+    </div>
+  </form>
+</div>
+<script>
+(function() {
+  const video = document.getElementById("cameraStream");
+  const captureBtn = document.getElementById("captureBtn");
+  const imageDataInput = document.getElementById("imageData");
+  const statusEl = document.getElementById("cameraStatus");
+  const form = document.getElementById("captureForm");
+  const orientationWarning = document.getElementById("orientationWarning");
+
+  let stream = null;
+
+  function setStatus(text) {
+    if (statusEl) statusEl.textContent = text || "";
+  }
+
+  function isLandscape() {
+    return window.innerWidth > window.innerHeight;
+  }
+
+  function updateOrientationUI() {
+    if (!isLandscape()) {
+      orientationWarning.classList.add("visible");
+      captureBtn.disabled = true;
+      setStatus("Rotate your device to landscape (sideways) before capturing.");
+    } else {
+      orientationWarning.classList.remove("visible");
+      // Enable capture only if camera is already running
+      captureBtn.disabled = !stream;
+      if (stream) {
+        setStatus("Camera ready. Align the sheet and tap Capture.");
+      }
+    }
+  }
+
+  async function startCamera() {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false
+      });
+      video.srcObject = stream;
+      updateOrientationUI();
+    } catch (err) {
+      console.error("Error starting camera:", err);
+      setStatus("Unable to access camera. You can still use the Scan Sheet button on the answer key page.");
+      captureBtn.disabled = true;
+    }
+  }
+
+  function stopCamera() {
+    if (stream) {
+      stream.getTracks().forEach(t => t.stop());
+      stream = null;
+    }
+  }
+
+  captureBtn.addEventListener("click", function() {
+    if (!stream) return;
+    if (!isLandscape()) {
+      setStatus("Rotate your device to landscape before capturing.");
+      return;
+    }
+
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    if (!vw || !vh) {
+      setStatus("Camera not ready yet. Please wait a second and try again.");
+      return;
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = vw;
+    canvas.height = vh;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const dataUrl = canvas.toDataURL("image/png");
+    imageDataInput.value = dataUrl;
+
+    setStatus("Capturing… please wait.");
+    captureBtn.disabled = true;
+    form.submit();
+  });
+
+  window.addEventListener("beforeunload", stopCamera);
+  window.addEventListener("resize", updateOrientationUI);
+
+  if ('orientation' in screen && screen.orientation.addEventListener) {
+    screen.orientation.addEventListener("change", updateOrientationUI);
+  }
+
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    startCamera();
+  } else {
+    setStatus("Camera is not supported on this device/browser.");
+  }
+})();
+</script>
+
+{% endblock %}

@@ -1,0 +1,41 @@
+<video id="cameraStream" autoplay playsinline></video>
+<div class="sheet-overlay">
+  <div class="sheet-frame"><!-- green box / grid --></div>
+</div>
+<canvas id="captureCanvas" style="display:none;"></canvas>
+<button id="captureBtn">Capture</button>
+<form method="post">
+  {% csrf_token %}
+  <input type="hidden" name="image_data" id="imageDataInput">
+  <button type="submit" id="submitBtn" style="display:none;">Use This Image</button>
+</form>
+
+<script>
+// 1) Start camera
+navigator.mediaDevices.getUserMedia({
+  video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+  audio: false
+}).then(stream => {
+  video.srcObject = stream;
+});
+
+// 2) Capture only the frame region
+captureBtn.onclick = () => {
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+
+  const roiWidth  = Math.floor(vw * 0.8);  // match your green frame
+  const roiHeight = Math.floor(vh * 0.8);
+  const roiX      = Math.floor((vw - roiWidth) / 2);
+  const roiY      = Math.floor((vh - roiHeight) / 2);
+
+  canvas.width = roiWidth;
+  canvas.height = roiHeight;
+  ctx.drawImage(video, roiX, roiY, roiWidth, roiHeight, 0, 0, roiWidth, roiHeight);
+
+  const dataUrl = canvas.toDataURL("image/png");
+  imageDataInput.value = dataUrl;
+  submitBtn.style.display = "inline-block";
+};
+
+</script>

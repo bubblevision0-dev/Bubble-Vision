@@ -1,0 +1,4 @@
+crossed
+empty
+filled
+invalid

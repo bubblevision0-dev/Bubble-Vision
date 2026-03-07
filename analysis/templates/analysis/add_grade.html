@@ -1,0 +1,413 @@
+{% extends 'analysis/base.html' %}
+{% load static %}
+
+{% block title %}Grades & Subjects | Item Analysis System{% endblock %}
+
+{% block content %}
+<style>
+/* === Inline List Styling within Modal === */
+.inline-list-container {
+    margin-top: 25px;
+    border-top: 2px solid #f3f4f6;
+    padding-top: 15px;
+}
+
+.inline-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.inline-list-container h3 {
+    font-size: 14px;
+    font-weight: 700;
+    color: #374151;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.inline-search {
+    width: 180px;
+    padding: 6px 10px;
+    font-size: 13px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+}
+
+/* === UL and Row Styling === */
+.grade-list-items {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.grade-list-item-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    margin-bottom: 6px;
+    transition: all 0.2s;
+}
+
+.grade-list-item-row:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+    transform: translateY(-1px);
+}
+
+.item-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #111827;
+}
+
+.item-actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* === Icon Buttons === */
+.btn-icon-sm {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    cursor: pointer;
+    font-size: 13px;
+    transition: opacity 0.2s;
+}
+
+.btn-edit-item { background-color: #22c55e; }
+.btn-delete-item { background-color: #ef4444; }
+.btn-icon-sm:hover { opacity: 0.8; }
+
+.no-items {
+    text-align: center;
+    color: #9ca3af;
+    padding: 20px;
+    font-size: 13px;
+}
+
+.field-error { font-size: 13px; margin-top: 5px; min-height: 18px; }
+</style>
+
+<link rel="stylesheet" href="{% static 'css/grade.css' %}">
+
+<div class="page-header">
+    <div>
+        <h1>Grades &amp; Sections</h1>
+        <p class="subtitle">Create grade levels and manage their subjects and sections.</p>
+    </div>
+</div>
+
+<div class="grade-dashboard">
+    <div class="grade-form-panel card">
+        <h2 id="gradeFormTitle">Add Grade</h2>
+        <div id="addGradePanel">
+            <form method="post" class="grade-form">
+                {% csrf_token %}
+                <div class="form-group">
+                    {{ form.name.label_tag }}
+                    {{ form.name }}
+                </div>
+                <button type="submit" class="btn-submit">Add Grade</button>
+            </form>
+
+            <div class="grades-panel card" style="margin-top:20px; box-shadow:none; border:1px solid #eee;">
+                <h2>Existing Grading Periods</h2>
+                <div class="grading-buttons">
+                    {% for grading_period in grading_periods|dictsort:"start_date" %}
+                        <button type="button" 
+                                class="btn-grade 
+                                {% if grading_period.start_date > current_date %}disabled{% endif %} 
+                                {% if grading_period.is_active %}current-period{% endif %}"
+                                data-grading-period-id="{{ grading_period.id }}"
+                                {% if grading_period.start_date > current_date %}disabled{% endif %}>
+                            {{ grading_period.period }}
+                        </button>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div id="editGradePanel" style="display:none;">
+            <form method="post" id="editGradeForm" class="grade-form">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="editGradeName">Name:</label>
+                    <input type="text" name="name" id="editGradeName" class="form-control" required>
+                </div>
+                <div class="edit-actions" style="margin-top: 10px; display:flex; gap:10px;">
+                    <button type="submit" class="btn-submit">Save Changes</button>
+                    <button type="button" id="cancelEditGrade" class="btn-secondary">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="grades-panel card">
+        <h2>Existing Grades</h2>
+        {% if grades %}
+            <div class="grades-grid">
+                {% for grade in grades %}
+                    <div class="grade-card">
+                        <div class="grade-name">
+                            <button type="button" class="btn-grade js-open-grade-modal"
+                                    data-grade-id="{{ grade.id }}"
+                                    data-grade-name="{{ grade.name }}"
+                                    data-section-url="{% url 'add_section' grade.id %}"
+                                    data-subject-url="{% url 'add_subject' grade.id %}">
+                                {{ grade.name }}
+                            </button>
+                        </div>
+                        <div class="grade-actions">
+                            <button type="button" class="btn-icon btn-edit js-edit-grade"
+                                    data-grade-id="{{ grade.id }}" data-grade-name="{{ grade.name }}">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <form action="{% url 'delete_grade' grade.id %}" method="post" class="inline-form">
+                                {% csrf_token %}
+                                <button type="submit" class="btn-icon btn-delete" onclick="return confirm('Delete {{ grade.name }}?');">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="no-grades-text">No grades added yet.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="grade-modal-overlay" id="gradeModal">
+    <div class="grade-modal">
+        <div class="grade-modal-header">
+            <div class="grade-modal-title">
+                <span class="grade-modal-label">GRADE</span>
+                <h2 id="gradeModalName">---</h2>
+            </div>
+            <button type="button" class="grade-modal-close" id="gradeModalClose">&times;</button>
+        </div>
+
+        <div class="grade-modal-body">
+            <div class="grade-modal-actions">
+                <div class="grade-modal-actions-left">
+                    <button type="button" class="btn-option js-open-panel" data-target="section">
+                        <i class="fas fa-people-group"></i> Sections
+                    </button>
+                    <button type="button" class="btn-option js-open-panel" data-target="subject">
+                        <i class="fas fa-book-open"></i> Subjects
+                    </button>
+                </div>
+            </div>
+
+            <div class="grade-modal-content" id="gradeModalContent">
+                <p class="placeholder-text">Choose “Sections” or “Subjects” above.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // PRELOADED DATA
+    const gradeSections = {
+        {% for grade in grades %}
+            "{{ grade.id }}": [
+                {% for section in grade.sections.all %}
+                    { id: {{ section.id }}, name: "{{ section.name|escapejs }}", editUrl: "{% url 'edit_section' grade.id section.id %}", deleteUrl: "{% url 'delete_section' grade.id section.id %}" }{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            ]{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    };
+
+    const gradeSubjects = {
+        {% for grade in grades %}
+            "{{ grade.id }}": [
+                {% for subject in grade.subjects.all %}
+                    { id: {{ subject.id }}, name: "{{ subject.name|escapejs }}", editUrl: "{% url 'edit_subject' grade.id subject.id %}", deleteUrl: "{% url 'delete_subject' grade.id subject.id %}" }{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            ]{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    };
+
+    (function () {
+        const gradeModal = document.getElementById("gradeModal");
+        const gradeModalName = document.getElementById("gradeModalName");
+        const modalContent = document.getElementById("gradeModalContent");
+        const csrfToken = document.querySelector("[name=csrfmiddlewaretoken]").value;
+
+        let currentGrade = { id: null, name: "", sectionUrl: "", subjectUrl: "" };
+        let currentMode = null; 
+
+        // --- Grade Management ---
+        document.querySelectorAll(".js-edit-grade").forEach(btn => {
+            btn.addEventListener("click", () => {
+                document.getElementById("gradeFormTitle").textContent = `Edit Grade: ${btn.dataset.gradeName}`;
+                document.getElementById("editGradeName").value = btn.dataset.gradeName;
+                document.getElementById("editGradeForm").action = `/grades/${btn.dataset.gradeId}/edit/`;
+                document.getElementById("addGradePanel").style.display = "none";
+                document.getElementById("editGradePanel").style.display = "block";
+            });
+        });
+
+        document.getElementById("cancelEditGrade").onclick = () => {
+            document.getElementById("gradeFormTitle").textContent = "Add Grade";
+            document.getElementById("addGradePanel").style.display = "block";
+            document.getElementById("editGradePanel").style.display = "none";
+        };
+
+        // --- Modal Control ---
+        document.querySelectorAll(".js-open-grade-modal").forEach(btn => {
+            btn.onclick = () => {
+                currentGrade = { 
+                    id: btn.dataset.gradeId, 
+                    name: btn.dataset.gradeName, 
+                    sectionUrl: btn.dataset.sectionUrl, 
+                    subjectUrl: btn.dataset.subjectUrl 
+                };
+                gradeModalName.textContent = currentGrade.name;
+                modalContent.innerHTML = '<p class="placeholder-text">Choose “Sections” or “Subjects” above.</p>';
+                gradeModal.classList.add("show");
+            };
+        });
+
+        document.getElementById("gradeModalClose").onclick = () => gradeModal.classList.remove("show");
+
+        // --- Render Forms with Inline Lists ---
+        function renderView(type) {
+            currentMode = type;
+            const isSection = type === 'section';
+            const title = isSection ? "Sections" : "Subjects";
+            const url = isSection ? currentGrade.sectionUrl : currentGrade.subjectUrl;
+            const items = isSection ? gradeSections[currentGrade.id] : gradeSubjects[currentGrade.id];
+
+            modalContent.innerHTML = `
+                <div class="${type}-container">
+                    <h2>Manage ${title} for ${currentGrade.name}</h2>
+                    <form method="post" class="${type}-form" action="${url}">
+                        <input type="hidden" name="csrfmiddlewaretoken" value="${csrfToken}">
+                        <div class="field-row">
+                            <label>${title} Name</label>
+                            <input type="text" name="name" required placeholder="Enter ${type} name...">
+                        </div>
+                        <p class="field-error" data-error></p>
+                        <button type="submit" class="btn-submit"><i class="fas fa-plus-circle"></i> Add ${title.slice(0,-1)}</button>
+                    </form>
+
+                    <div class="inline-list-container">
+                        <div class="inline-header-row">
+                            <h3>Existing ${title}</h3>
+                            <input type="text" class="inline-search" placeholder="Search ${title.toLowerCase()}..." id="inlineSearch">
+                        </div>
+                        <ul id="inlineList" class="grade-list-items"></ul>
+                    </div>
+                </div>
+            `;
+
+            const searchInput = document.getElementById("inlineSearch");
+            searchInput.oninput = () => updateListUI(items, searchInput.value);
+            updateListUI(items);
+        }
+
+        function updateListUI(items, query = "") {
+            const listEl = document.getElementById("inlineList");
+            if (!listEl) return;
+            listEl.innerHTML = "";
+            const filtered = items.filter(i => i.name.toLowerCase().includes(query.toLowerCase()));
+
+            if (filtered.length === 0) {
+                listEl.innerHTML = `<li class="no-items">${query ? 'No matches found' : 'No items added yet'}</li>`;
+                return;
+            }
+
+            filtered.forEach(item => {
+                const li = document.createElement("li");
+                li.className = "grade-list-item-row";
+                li.innerHTML = `
+                    <span class="item-name">${item.name}</span>
+                    <div class="item-actions">
+                        <button class="btn-icon-sm btn-edit-item"><i class="fas fa-edit"></i></button>
+                        <button class="btn-icon-sm btn-delete-item"><i class="fas fa-trash"></i></button>
+                    </div>
+                `;
+                li.querySelector(".btn-edit-item").onclick = () => handleEdit(item);
+                li.querySelector(".btn-delete-item").onclick = () => handleDelete(item);
+                listEl.appendChild(li);
+            });
+        }
+
+        document.querySelectorAll(".js-open-panel").forEach(btn => {
+            btn.onclick = () => renderView(btn.dataset.target);
+        });
+
+        // --- AJAX Operations ---
+        modalContent.addEventListener("submit", (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const errEl = form.querySelector("[data-error]");
+            
+            fetch(form.action, {
+                method: "POST",
+                body: new FormData(form),
+                headers: { "X-Requested-With": "XMLHttpRequest" }
+            })
+            .then(res => res.json())
+            .then(data => {
+                const targetArr = currentMode === 'section' ? gradeSections[currentGrade.id] : gradeSubjects[currentGrade.id];
+                targetArr.push(data);
+                form.reset();
+                errEl.style.color = "#16a34a";
+                errEl.textContent = "Added successfully!";
+                updateListUI(targetArr);
+            })
+            .catch(() => { errEl.style.color = "#ef4444"; errEl.textContent = "Error adding item."; });
+        });
+
+        function handleEdit(item) {
+            const newName = prompt("Edit name:", item.name);
+            if (!newName || newName.trim() === item.name) return;
+
+            const fd = new FormData();
+            fd.append("csrfmiddlewaretoken", csrfToken);
+            fd.append("name", newName.trim());
+
+            fetch(item.editUrl, { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" }})
+            .then(res => {
+                if(!res.ok) throw new Error();
+                item.name = newName.trim();
+                updateListUI(currentMode === 'section' ? gradeSections[currentGrade.id] : gradeSubjects[currentGrade.id]);
+            })
+            .catch(() => alert("Update failed"));
+        }
+
+        function handleDelete(item) {
+            if (!confirm(`Delete "${item.name}"?`)) return;
+            const fd = new FormData();
+            fd.append("csrfmiddlewaretoken", csrfToken);
+
+            fetch(item.deleteUrl, { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" }})
+            .then(res => res.json())
+            .then(() => {
+                const arr = currentMode === 'section' ? gradeSections[currentGrade.id] : gradeSubjects[currentGrade.id];
+                const idx = arr.findIndex(i => String(i.id) === String(item.id));
+                if (idx > -1) arr.splice(idx, 1);
+                updateListUI(arr);
+            })
+            .catch(() => alert("Delete failed"));
+        }
+    })();
+</script>
+{% endblock %}

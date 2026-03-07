@@ -1,0 +1,91 @@
+{# analysis/users/partials/edit_answer_key_modal.html #}
+<form method="post"
+      enctype="multipart/form-data"
+      class="answer-key-edit-form"
+      data-key-id="{{ answer_key.id }}">
+  {% csrf_token %}
+
+  {% if form.non_field_errors %}
+    <div class="alert alert-error">
+      {% for error in form.non_field_errors %}
+        <p>{{ error }}</p>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <div class="form-columns">
+    {# Left: Grade / Section / Subject #}
+    <div class="form-column">
+      <div class="form-group">
+        <select id="edit_grade" name="grade" required>
+          {% for g in grades %}
+            <option value="{{ g.id }}"
+                    {% if g.id == answer_key.grade.id %}selected{% endif %}>
+              {{ g.name }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <select id="edit_section" name="section" required>
+          {% for s in sections %}
+            <option value="{{ s.id }}"
+                    {% if s.id == answer_key.section.id %}selected{% endif %}>
+              {{ s.name }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <select id="edit_subject" name="subject" required>
+          {% for sub in subjects %}
+            <option value="{{ sub.id }}"
+                    {% if sub.id == answer_key.subject.id %}selected{% endif %}>
+              {{ sub.name }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    {# Right: optional file replace #}
+    <div class="form-column">
+      <div class="upload-group">
+        <label class="field-label">Test Sheet (optional)</label>
+        <label for="edit_test_sheet" class="custom-file-upload">
+          <i class="fas fa-file-alt"></i> Replace Test Sheet
+          <input type="file"
+                 id="edit_test_sheet"
+                 name="test_sheet"
+                 accept=".csv,.pdf,.doc,.docx">
+        </label>
+        <span class="file-name">
+          Current: {{ answer_key.test_sheet.name|default:"None" }}
+        </span>
+      </div>
+
+      <div class="upload-group">
+        <label class="field-label">Answer Key (optional)</label>
+        <label for="edit_answer_key" class="custom-file-upload">
+          <i class="fas fa-key"></i> Replace Answer Key
+          <input type="file"
+                 id="edit_answer_key"
+                 name="answer_key"
+                 accept=".csv,.pdf,.doc,.docx">
+        </label>
+        <span class="file-name">
+          Current: {{ answer_key.file.name|default:"None" }}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div class="form-footer">
+    <button type="submit" class="btn-submit">
+      <i class="fas fa-save"></i>
+      Update
+    </button>
+  </div>
+</form>

@@ -1,0 +1,125 @@
+{% extends 'analysis/users/base.html' %}
+{% load static %}
+
+{% block title %}Bubble Sheet Result{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/answer_key.css' %}">
+
+<style>
+  .name-strip-card {
+      margin-top: 16px;
+      margin-bottom: 12px;
+  }
+  .name-strip-card h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+  }
+  .name-strip-link {
+      display: inline-block;
+      cursor: pointer;
+  }
+</style>
+
+<div class="ak-review-page">
+
+  <!-- ===== HEADER (grade / section / subject / detected name) ===== -->
+  <div class="ak-review-header-card">
+    <div class="ak-review-main">
+      <h2>Bubble Sheet Captured</h2>
+      <p class="ak-review-subtitle">
+        Below is the detected name area. Click it to go to the bubble test score page.
+      </p>
+
+      <div class="ak-chip-row">
+        <span class="ak-chip">Grade {{ grade.name }}</span>
+        <span class="ak-chip">Section {{ section.name }}</span>
+        <span class="ak-chip">{{ subject.name }}</span>
+      </div>
+    </div>
+
+    <div class="ak-review-right">
+      <div class="ak-metrics">
+        <div class="ak-metric">
+          <span class="label">Detected name</span>
+          <span class="value">
+            {{ student_name|default:"(name not detected)" }}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== NAME STRIP FIRST (CLICKABLE → bubble_score.html) ===== -->
+  {% if name_crop_data_uri %}
+  <div class="name-strip-card">
+    <h3>Name area (cropped)</h3>
+    <p style="font-size:0.8rem; color:#777; margin-bottom:4px;">
+      Click this strip to open the bubble test score and full sheet.
+    </p>
+
+    <!-- 🔹 Clicking this goes to bubble_score for this answer key -->
+    <a href="{% url 'bubble_score' answer_key.pk %}"
+       class="name-strip-link">
+      <img src="{{ name_crop_data_uri }}"
+           alt="Name crop"
+           style="width:100%; max-width:600px;
+                  border-radius:8px; border:1px solid #ddd;">
+    </a>
+  </div>
+  {% endif %}
+
+  <!-- Optional: simple form to edit/save name on this page -->
+  <form method="post" action="#">
+    {% csrf_token %}
+    <div style="margin-bottom: 12px;">
+      <label for="student-name-input" style="font-weight:600;">
+        Student name (you can edit)
+      </label>
+      <input type="text"
+             id="student-name-input"
+             name="student_name"
+             value="{{ student_name }}"
+             style="width: 100%; max-width: 320px;
+                    padding: 6px 10px;
+                    border-radius: 6px;
+                    border: 1px solid #ccc;
+                    margin-top: 4px;">
+    </div>
+
+    <div style="margin-top: 18px; display:flex; gap:8px; flex-wrap: wrap;">
+      <a href="{% url 'answer_key_review' answer_key.pk %}"
+         class="btn btn-secondary">
+        ← Back to Answer Key
+      </a>
+
+      <button type="submit"
+              class="btn btn-primary">
+        Save Name
+      </button>
+    </div>
+  </form>
+
+</div>
+
+<script>
+  // Show the sheet result when the cropped name strip is clicked
+  (function () {
+    const strip = document.getElementById('nameStripToggle');
+    const sheetPanel = document.getElementById('sheetPanel');
+
+    if (!strip || !sheetPanel) return;
+
+    strip.addEventListener('click', function (e) {
+      e.preventDefault();
+      // only show (no toggle hide); if you want toggle, change the logic
+      if (sheetPanel.style.display === 'none' || sheetPanel.style.display === '') {
+        sheetPanel.style.display = 'block';
+        sheetPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  })();
+</script>
+
+{% endblock %}

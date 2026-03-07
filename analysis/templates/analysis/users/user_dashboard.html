@@ -1,0 +1,2530 @@
+{# analysis/users/user_dashboard.html #}
+{% extends "analysis/users/base.html" %}
+{% load static %}
+
+{% block title %}Teacher Dashboard | Item Analysis{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/user_dashboard.css' %}">
+
+<style>
+  /* =========================
+     DASHBOARD STYLES (yours)
+     ========================= */
+  .grading-period-container {
+      background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px;
+      padding: 16px 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: 20px; flex-wrap: wrap; gap: 15px;
+  }
+  .gp-info { display: flex; align-items: center; gap: 12px; }
+  .gp-info-icon { background: #0f172a; color: white; width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+  .gp-info-text label { display: block; font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; }
+  .gp-info-text span { font-size: 14px; font-weight: 700; color: #0f172a; }
+
+  .grading-period-bar { display: flex; flex-wrap: wrap; gap: 8px; }
+  .gp-btn {
+      padding: 8px 18px; border-radius: 10px; border: 1px solid #e2e8f0;
+      background: #fff; font-size: 13px; font-weight: 700; cursor: pointer;
+      text-decoration: none; color: #475569; transition: all .2s ease;
+      display: inline-flex; align-items: center; gap: 6px;
+  }
+  .gp-btn.active { background: #0f172a; color: #ffffff; border-color: #0f172a; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2); }
+  .gp-btn.active::before { content: ""; width: 6px; height: 6px; background: #10b981; border-radius: 50%; }
+  .gp-btn.disabled-link { opacity: 0.4; cursor: not-allowed; pointer-events: none; background: #f1f5f9; }
+
+  .action-card { text-decoration: none; color: inherit; cursor: pointer; text-align: center; transition: all 0.25s ease-in-out; padding: 16px 12px !important; display: flex; flex-direction: column; align-items: center; }
+  .action-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(15, 23, 42, 0.12); }
+  .action-card .icon-wrapper { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; font-size: 1.2rem; }
+
+  .bg-orange { background: #fff7ed; color: #f59e0b; }
+  .bg-blue { background: #eff6ff; color: #3b82f6; }
+  .bg-pink { background: #fdf2f8; color: #ec4899; }
+  .bg-yellow { background: #fffcf0; color: #eab308; }
+
+  #scanCaptureSection { display: none; background: #f8fafc; padding: 2rem; border-radius: 18px; border: 1px solid #e2e8f0; margin-top: 24px; animation: slideUp 0.4s ease-out; }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+  .assigned-classes-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+
+  .class-box {
+      background: #ffffff; border: 1px solid #e2e8f0; padding: 18px; border-radius: 16px;
+      transition: all 0.2s ease; border-left: 5px solid #0f172a; position: relative;
+      display: flex; flex-direction: column; gap: 8px;
+  }
+  .class-box:hover { box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.1); transform: scale(1.01); }
+
+  /* ACCORDION BEHAVIOR (no removal of your design) */
+  .class-box-header { cursor: pointer; user-select: none; }
+  .class-box-body { display:none; margin-top: 10px; }
+  .class-box.is-open .class-box-body { display:block; }
+  .class-box.is-open { box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.10); }
+
+  .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); display: none; align-items: center; justify-content: center; z-index: 2000; backdrop-filter: blur(4px); }
+  .modal-overlay.show { display: flex; }
+
+  .scan-btn{
+      border: 1px solid #10b981;
+      cursor: pointer;
+      background: #ecfdf5;
+      color: #10b981;
+      width: 35px;
+      height: 35px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all .15s ease;
+  }
+  .scan-btn.scanned{
+      border-color: #16a34a;
+      background: #dcfce7;
+      color: #16a34a;
+  }
+  .scan-btn:hover{ filter: brightness(.98); }
+
+  #loadingOverlay{
+      display:none;
+      position: fixed;
+      top:0; left:0;
+      width:100%; height:100%;
+      background:rgba(255,255,255,0.9);
+      z-index:9999;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+  }
+  .spinner{
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #3498db;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+  }
+  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+  .btn-icon{
+    border:none;
+    background:#f1f5f9;
+    width:30px; height:30px;
+    border-radius:8px;
+    cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .btn-icon:hover{ filter: brightness(.98); }
+
+  .modal-overlay .backdrop-close-area{
+    position:absolute; inset:0;
+  }
+
+  /* ===========================================
+     STUDENTS MANAGE RECORDS (scoped to section)
+     =========================================== */
+  #studentsManageSection { display:none; margin-top: 18px; }
+
+  #studentsManageSection .page-wrapper { padding: 20px 40px 40px; }
+  #studentsManageSection .page-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; gap: 12px; flex-wrap: wrap; }
+  #studentsManageSection .page-header h1 { font-size:1.6rem; font-weight:700; color:#0f172a; margin:0; }
+  #studentsManageSection .page-header-subtitle { font-size:0.95rem; color:#6b7280; margin-top:2px; }
+
+  #studentsManageSection .students-grid { display:grid; grid-template-columns:minmax(0,420px) minmax(0,1fr); gap:28px; align-items:flex-start; }
+  #studentsManageSection .panel, #studentsManageSection .grades-panel {
+      background:#fff; border-radius:24px; box-shadow:0 20px 60px rgba(15,23,42,.12);
+      padding:22px 24px 24px;
+  }
+  #studentsManageSection .panel-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+  #studentsManageSection .panel-title { font-size:1.1rem; font-weight:600; color:#111827; }
+  #studentsManageSection .form-group{ margin-bottom:12px; }
+  #studentsManageSection .form-group label{ display:block; font-size:.88rem; font-weight:500; margin-bottom:4px; color:#374151; }
+  #studentsManageSection .form-control, #studentsManageSection input[type="text"]{
+      width:100%; border-radius:12px; border:1px solid #e5e7eb; padding:9px 11px;
+      font-size:.9rem; color:#111827; outline:none; background:#f9fafb;
+      transition:border-color .12s ease, box-shadow .12s ease, background .12s ease;
+  }
+  #studentsManageSection .form-control:focus, #studentsManageSection input[type="text"]:focus{
+      border-color:#2563eb; box-shadow:0 0 0 1px rgba(37,99,235,.35); background:#fff;
+  }
+  #studentsManageSection .form-row-inline{ display:flex; gap:12px; }
+  #studentsManageSection .form-row-inline .form-group{ flex:1; margin-bottom:0; }
+  #studentsManageSection .form-row-inline .form-group.mi-group{ flex:0 0 120px; }
+
+  #studentsManageSection .form-actions{ margin-top:6px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  #studentsManageSection .btn-submit{
+      display:inline-flex; align-items:center; justify-content:center; padding:10px 22px; border-radius:999px;
+      border:none; background:linear-gradient(135deg,#2563eb,#1d4ed8); color:#fff; font-weight:600; font-size:.9rem;
+      cursor:pointer; box-shadow:0 14px 30px rgba(37,99,235,.35); transition:transform .1s ease, box-shadow .1s ease;
+  }
+  #studentsManageSection .btn-submit:hover{ transform:translateY(-1px); box-shadow:0 18px 40px rgba(37,99,235,.4); }
+  #studentsManageSection .btn-secondary{
+      display:inline-flex; align-items:center; gap:8px; border-radius:999px; border:1px solid #e5e7eb;
+      background:#f9fafb; color:#374151; padding:9px 16px; font-size:.86rem; font-weight:500;
+      text-decoration:none; cursor:pointer; transition:background .1s ease, border-color .1s ease, transform .08s ease;
+  }
+  #studentsManageSection .btn-secondary:hover{ background:#f3f4f6; border-color:#d1d5db; transform:translateY(-1px); }
+  #studentsManageSection .btn-import{
+      border-radius:999px; border:1px solid #e5e7eb; background:#111827; color:#f9fafb;
+      padding:9px 16px; font-size:.86rem; font-weight:500; cursor:pointer; display:inline-flex; align-items:center; gap:6px;
+      transition:background .1s ease, transform .08s ease, box-shadow .08s ease;
+  }
+  #studentsManageSection .btn-import:hover{ background:#020617; transform:translateY(-1px); box-shadow:0 16px 36px rgba(15,23,42,.4); }
+  #studentsManageSection .edit-hint{ font-size:.8rem; color:#6b7280; }
+
+  #studentsManageSection .grades-header{ margin-bottom:12px; }
+  #studentsManageSection .grades-header h2{ font-size:1.05rem; font-weight:600; margin:0; color:#111827; }
+  #studentsManageSection .grades-header p{ margin:2px 0 0; font-size:.87rem; color:#6b7280; }
+
+  #studentsManageSection .grade-row{
+      display:flex; align-items:center; justify-content:space-between; background:#f9fafb;
+      border-radius:20px; padding:12px 16px; margin-bottom:12px; box-shadow:0 18px 40px rgba(15,23,42,.10);
+      cursor:pointer; text-align:left; transition:background .12s ease, box-shadow .12s ease, transform .12s ease;
+  }
+  #studentsManageSection .grade-row:hover{ background:#eef2ff; box-shadow:0 20px 52px rgba(37,99,235,.25); transform:translateY(-2px); }
+  #studentsManageSection .grade-label{ font-weight:600; color:#111827; font-size:.95rem; min-width:32px; }
+  #studentsManageSection .grade-sections{ flex:1; font-size:.9rem; color:#374151; display:flex; flex-wrap:wrap; gap:6px; }
+  #studentsManageSection .section-pill{ background:#fff; border-radius:999px; padding:4px 10px; box-shadow:0 8px 20px rgba(15,23,42,.10); font-size:.8rem; color:#111827; display:inline-flex; align-items:center; gap:6px; }
+  #studentsManageSection .section-count{ background:#e0f2fe; color:#075985; border-radius:999px; padding:2px 6px; font-size:.75rem; font-weight:600; }
+  #studentsManageSection .grade-actions{ margin-left:10px; white-space:nowrap; }
+  #studentsManageSection .btn-link{
+      border:none; background:none; color:#2563eb; font-size:.85rem; font-weight:500; text-decoration:none;
+      cursor:pointer; padding:6px 12px; border-radius:999px; transition:background .12s ease, color .12s ease;
+  }
+  #studentsManageSection .btn-link:hover{ background:rgba(37,99,235,.08); color:#1d4ed8; }
+  #studentsManageSection .no-students-text{ font-size:.9rem; color:#6b7280; margin-top:6px; }
+
+  #studentsManageSection .btn-icon{
+      width:28px; height:28px; border-radius:999px; border:none; display:inline-flex; align-items:center; justify-content:center;
+      font-size:.8rem; cursor:pointer; transition:transform .1s ease, box-shadow .1s ease, background .1s ease;
+      color:#fff; box-shadow:0 10px 20px rgba(15,23,42,.25);
+  }
+  #studentsManageSection .btn-icon i{ pointer-events:none; }
+  #studentsManageSection .btn-edit{ background:#22c55e; }
+  #studentsManageSection .btn-edit:hover{ background:#16a34a; transform:translateY(-1px); }
+  #studentsManageSection .btn-delete{ background:#ef4444; }
+  #studentsManageSection .btn-delete:hover{ background:#dc2626; transform:translateY(-1px); }
+
+  #studentsManageSection .student-modal{
+      position:fixed; inset:0; background:rgba(15,23,42,.45);
+      display:none; align-items:center; justify-content:center; z-index:3000;
+  }
+  #studentsManageSection .student-modal.is-open{ display:flex; }
+  #studentsManageSection .student-modal-dialog{
+      background:#fff; border-radius:20px; width:720px; max-width:96%; max-height:80vh;
+      box-shadow:0 30px 80px rgba(15,23,42,.55); overflow-y:auto;
+  }
+  #studentsManageSection .student-modal-inner{ padding:18px 20px 16px; }
+  #studentsManageSection .student-modal-header{ display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+  #studentsManageSection .student-modal-title{ font-size:1rem; font-weight:700; color:#0f172a; }
+  #studentsManageSection .student-modal-subtitle{ font-size:.82rem; color:#6b7280; }
+  #studentsManageSection .student-modal-search{ margin-left:auto; display:flex; align-items:center; gap:6px; width:auto; }
+  #studentsManageSection .student-modal-search input{
+      border-radius:999px; border:1px solid #e5e7eb; padding:6px 10px; font-size:.82rem; background:#f9fafb; min-width:180px;
+  }
+  #studentsManageSection .student-modal-search input:focus{
+      outline:none; border-color:#2563eb; box-shadow:0 0 0 1px rgba(37,99,235,.25); background:#fff;
+  }
+  #studentsManageSection .student-modal-close{ border:none; background:transparent; font-size:1.2rem; cursor:pointer; color:#6b7280; }
+  #studentsManageSection .modal-section-block{ background:#f9fafb; border-radius:16px; padding:10px 12px; margin-bottom:10px; }
+  #studentsManageSection .modal-section-title{ font-weight:600; font-size:.9rem; margin-bottom:6px; color:#111827; }
+  #studentsManageSection .modal-student-list{ list-style:none; margin:0; padding:0; }
+  #studentsManageSection .modal-student-row{
+      display:flex; align-items:center; justify-content:space-between; background:#fff;
+      border-radius:12px; padding:6px 10px; margin-bottom:4px; box-shadow:0 6px 16px rgba(15,23,42,.08);
+  }
+  #studentsManageSection .modal-student-name{ font-size:.9rem; font-weight:500; color:#0f172a; }
+  #studentsManageSection .modal-student-actions{ display:flex; align-items:center; gap:6px; }
+
+  @media (max-width: 1024px){
+    #studentsManageSection .page-wrapper{ padding: 18px 18px 30px; }
+    #studentsManageSection .students-grid{ grid-template-columns: 1fr; gap: 18px; }
+  }
+  @media (max-width: 720px){
+    #studentsManageSection .page-wrapper{ padding: 16px 14px 26px; }
+    #studentsManageSection .panel, #studentsManageSection .grades-panel{ padding:16px 16px 18px; border-radius:18px; }
+    #studentsManageSection .form-row-inline{ flex-direction:column; gap:12px; }
+    #studentsManageSection .form-row-inline .form-group.mi-group{ flex: 1 1 auto; }
+    #studentsManageSection .btn-submit, #studentsManageSection .btn-secondary, #studentsManageSection .btn-import{ width:100%; justify-content:center; }
+    #studentsManageSection .grade-row{ flex-direction:column; align-items:flex-start; gap:10px; }
+    #studentsManageSection .grade-actions{ margin-left:0; width:100%; white-space:normal; display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-start; }
+    #studentsManageSection .btn-icon{ width:34px; height:34px; font-size:.9rem; }
+    #studentsManageSection .student-modal-dialog{ width:96%; max-width:96%; max-height:88vh; border-radius:16px; }
+    #studentsManageSection .student-modal-inner{ padding:14px 14px 12px; }
+    #studentsManageSection .student-modal-search{ width:100%; margin-left:0; }
+    #studentsManageSection .student-modal-search input{ width:100%; min-width:0; padding:10px 12px; }
+    #studentsManageSection input, #studentsManageSection select, #studentsManageSection button{ min-height:44px; }
+  }
+
+    /* FULL-WIDTH OPENED SECTION BEHAVIOR */
+  .assigned-classes-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+    align-items: start;
+  }
+
+  /* when one class-box is open → force single column full width */
+  .assigned-classes-row.has-open {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* hide other boxes when one is open (so the open one occupies full width) */
+  .assigned-classes-row.has-open .class-box:not(.is-open) {
+    display: none !important;
+  }
+
+  /* make the open box span full row */
+  .assigned-classes-row.has-open .class-box.is-open {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+  }
+
+  
+
+</style>
+
+<div class="page-header">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;">
+      <div>
+          <div style="display:flex;align-items:baseline;gap:10px;">
+              <div style="font-size:1.6rem;font-weight:800;color:#0f172a;">{{ institution_name|default:"Institution" }}</div>
+              <div style="font-size:0.85rem;font-weight:700;color:#1d4ed8;padding:4px 14px;border-radius:999px;background:rgba(37,99,235,.08);border:1px solid rgba(37,99,235,.15);">
+                  SY {{ academic_year }}
+              </div>
+          </div>
+          <h4 style="margin-top:4px;color:#64748b;font-weight:500;">Welcome, {{ request.user.first_name|default:request.user.username }}</h4>
+      </div>
+  </div>
+
+  <div class="grading-period-container">
+      <div class="gp-info">
+          <div class="gp-info-icon"><i class="fas fa-calendar-alt"></i></div>
+          <div class="gp-info-text">
+              <label>Data Filter</label>
+              <span>Currently viewing: <strong>{% if selected_grading_period %}{{ selected_grading_period.period }}{% else %}No period selected{% endif %}</strong></span>
+          </div>
+      </div>
+      <div class="grading-period-bar">
+          {% for gp in grading_buttons %}
+              <a href="?gp={{ gp.id }}" class="gp-btn {% if gp.is_selected %}active{% endif %} {% if not gp.enabled %}disabled-link{% endif %}">
+                  {{ gp.period }}
+              </a>
+          {% endfor %}
+      </div>
+  </div>
+</div>
+
+<section class="dashboard-grid user-dashboard-grid" style="margin: 24px 0;">
+  <div class="card stat-card action-card" id="triggerScan" style="cursor:pointer;">
+      <div class="icon-wrapper bg-orange"><i class="fas fa-camera-retro"></i></div>
+      <div class="label" style="font-weight:800;font-size:13px;">Scan & Capture</div>
+      <div class="subtext" style="font-size:11px;color:#64748b;">Answer Keys Only</div>
+  </div>
+
+  {# CHANGED: Students card now opens Manage Records inside dashboard #}
+  <div class="card stat-card action-card" id="triggerStudents" style="cursor:pointer;">
+      <div class="icon-wrapper bg-blue"><i class="fas fa-user-graduate"></i></div>
+      <div class="label" style="font-weight:800;font-size:13px;">Students</div>
+      <div class="subtext" style="font-size:11px;color:#64748b;">Manage Records</div>
+  </div>
+
+  <a href="{% url 'user_report' %}" class="card stat-card action-card">
+      <div class="icon-wrapper bg-pink"><i class="fas fa-file-lines"></i></div>
+      <div class="label" style="font-weight:800;font-size:13px;">Reports</div>
+      <div class="subtext" style="font-size:11px;color:#64748b;">Analysis Results</div>
+  </a>
+  <a href="{% url 'user_profile' %}" class="card stat-card action-card">
+      <div class="icon-wrapper bg-yellow"><i class="fas fa-user-cog"></i></div>
+      <div class="label" style="font-weight:800;font-size:13px;">Settings</div>
+      <div class="subtext" style="font-size:11px;color:#64748b;">Profile & Security</div>
+  </a>
+</section>
+
+<section id="scanCaptureSection" style="display:none;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;">
+      <h3 style="font-size:18px;color:#1e293b;margin:0;font-weight:700;">
+          <i class="fas fa-layer-group me-2"></i>Subject-Section Matrix
+      </h3>
+      <div style="display:flex;gap:8px;">
+          <button type="button" class="gp-btn" onclick="document.getElementById('scanCaptureSection').style.display='none'">Close</button>
+      </div>
+  </div>
+  <div class="assigned-classes-row" id="classBoxesContainer"></div>
+</section>
+
+<section id="studentsManageSection">
+  <div class="page-wrapper">
+    <div class="page-header">
+      <div>
+        <h1>Students</h1>
+        <div class="page-header-subtitle">
+          Add, update, and manage students by grade and section.
+        </div>
+      </div>
+
+      <button type="button" class="btn-secondary" id="backToDashboardBtn">
+        <i class="fas fa-arrow-left"></i> Back to Dashboard
+      </button>
+    </div>
+
+    <div class="students-grid">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">Add Student</div>
+          </div>
+        </div>
+
+        {# IMPORTANT: post to students_view so it saves correctly #}
+        <form method="post" id="studentForm" action="{% url 'students_view' %}">
+          {% csrf_token %}
+          <input type="hidden" name="student_id" id="studentIdField"
+                 value="{{ editing_student_id|default_if_none:'' }}">
+
+          <div class="form-group">
+            <label for="gradeSelect">Grade</label>
+            <select id="gradeSelect" class="form-control">
+              <option value="">Select grade</option>
+              {% for g in grades %}
+                <option value="{{ g.id }}">{{ g.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="sectionSelect">Section</label>
+            <select name="section" id="sectionSelect" class="form-control" required>
+              <option value="">---------</option>
+              {% for section in sections %}
+                <option value="{{ section.id }}"
+                        data-grade="{{ section.grade.id }}"
+                        {% if form.instance.pk and form.instance.section.id == section.id %}
+                            selected
+                        {% endif %}>
+                  {{ section.name }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="id_full_name">Student Name (First Name):</label>
+            <input type="text"
+                   id="id_full_name"
+                   name="full_name"
+                   value="{{ form.full_name.value|default_if_none:'' }}"
+                   placeholder="e.g. Alyssa Grace"
+                   required>
+          </div>
+
+          <div class="form-row-inline">
+            <div class="form-group mi-group">
+              <label for="id_middle_initial">Middle Initial:</label>
+              <input type="text"
+                     id="id_middle_initial"
+                     name="middle_initial"
+                     maxlength="2"
+                     value="{{ form.middle_initial.value|default_if_none:'' }}"
+                     placeholder="M">
+            </div>
+
+            <div class="form-group">
+              <label for="id_last_name">Last Name:</label>
+              <input type="text"
+                     id="id_last_name"
+                     name="last_name"
+                     value="{{ form.last_name.value|default_if_none:'' }}"
+                     placeholder="e.g. Santos">
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn-submit" id="studentSubmitBtn">
+              Add Student
+            </button>
+
+            <button type="button" class="btn-import" id="openImportModalBtn">
+              Import List
+            </button>
+
+            <button type="button" id="cancelEditStudent" class="btn-secondary">
+              Cancel
+            </button>
+
+            <span class="edit-hint" id="editHint" style="display:none;">
+              Editing student. Make changes then click “Save changes” or press Cancel.
+            </span>
+          </div>
+        </form>
+      </div>
+
+      <div class="grades-panel">
+        <div class="grades-header">
+          <h2>Existing Students</h2>
+          <p>Click “View students” to manage the list per section.</p>
+        </div>
+
+        {% if grades_with_sections %}
+          <div class="grade-list">
+            {% for grade, section_groups in grades_with_sections.items %}
+              {% for sg in section_groups %}
+                <div class="grade-row">
+                  <div class="grade-label">
+                    {{ sg.grouper.grade.name }}
+                  </div>
+
+                  <div class="grade-sections">
+                    <span class="section-pill">
+                      <span class="section-count">
+                        {{ sg.list|length }}
+                      </span>
+                      <span class="section-name">
+                        {{ sg.grouper.name }}
+                      </span>
+                    </span>
+                  </div>
+
+                  <div class="grade-actions" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+                    <a href="#"
+                      class="btn-link js-open-students"
+                      data-grade="{{ sg.grouper.grade.id }}"
+                      data-section="{{ sg.grouper.id }}">
+                      View students
+                    </a>
+                  </div>
+                </div>
+              {% endfor %}
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="no-students-text">
+            No students added yet. Use the form on the left.
+          </p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# STUDENTS LIST MODAL #}
+  <div class="student-modal" id="studentsModal">
+    <div class="student-modal-dialog">
+      <div class="student-modal-inner">
+        <div class="student-modal-header">
+          <div>
+            <div class="student-modal-title" id="modalTitle"></div>
+            <div class="student-modal-subtitle">Students</div>
+          </div>
+
+          <div class="student-modal-search">
+            <input type="text" id="studentSearchInput" placeholder="Search student…">
+          </div>
+
+          <button type="button" class="student-modal-close" data-close="1">&times;</button>
+        </div>
+
+        <div class="student-modal-body" id="modalBody">
+          {% for grade, section_groups in grades_with_sections.items %}
+            {% for sg in section_groups %}
+              <div class="modal-section-block js-section-block"
+                   data-grade="{{ sg.grouper.grade.id }}"
+                   data-section="{{ sg.grouper.id }}"
+                   style="display:none;">
+                <div class="modal-section-title">
+                  {{ sg.grouper.grade.name }} — {{ sg.grouper.name }}
+                </div>
+
+                <ul class="modal-student-list">
+                  {% for student in sg.list %}
+                    <li class="modal-student-row">
+                      <span class="modal-student-name">
+                        {% if student.last_name %}
+                          {{ student.last_name }}, {{ student.full_name }}
+                          {% if student.middle_initial %} {{ student.middle_initial }}.{% endif %}
+                        {% else %}
+                          {{ student.full_name }}
+                        {% endif %}
+                      </span>
+
+                      <span class="modal-student-actions">
+                        <button type="button"
+                                class="btn-icon btn-edit js-edit-student"
+                                title="Edit"
+                                data-student-id="{{ student.id }}"
+                                data-student-name="{{ student.full_name }}"
+                                data-grade-id="{{ student.section.grade.id }}"
+                                data-section-id="{{ student.section.id }}"
+                                data-last-name="{{ student.last_name }}"
+                                data-middle-initial="{{ student.middle_initial }}">
+                          <i class="fas fa-edit"></i>
+                        </button>
+
+                        <form action="{% url 'user_delete_student' student.id %}"
+                              method="post"
+                              onsubmit="return confirm('Delete {{ student.full_name }}?');">
+                          {% csrf_token %}
+                          <button type="submit" class="btn-icon btn-delete" title="Delete">
+                            <i class="fas fa-trash-alt"></i>
+                          </button>
+                        </form>
+                      </span>
+                    </li>
+                  {% empty %}
+                    <li class="no-students-text">No students yet in this section.</li>
+                  {% endfor %}
+                </ul>
+
+                <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:8px;">
+                  <a href="{% url 'download_bubble_sheets_section' sg.grouper.id %}"
+                     class="btn-link"
+                     style="text-decoration:none;font-weight:700;">
+                    <i class="fas fa-download"></i> Bubble Sheets
+                  </a>
+                </div>
+              </div>
+            {% endfor %}
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# IMPORT MODAL #}
+  <div class="student-modal" id="importModal">
+    <div class="student-modal-dialog">
+      <div class="student-modal-inner">
+        <div class="student-modal-header">
+          <div>
+            <div class="student-modal-title">Import Student List</div>
+            <div class="student-modal-subtitle">Upload an Excel or PDF file for a specific grade and section.</div>
+          </div>
+          <button type="button" class="student-modal-close" data-close="1">&times;</button>
+        </div>
+
+        <div class="student-modal-body">
+          <form method="post" enctype="multipart/form-data" action="{% url 'import_students_view' %}">
+            {% csrf_token %}
+
+            <div class="form-group">
+              <label for="importGrade">Grade</label>
+              <select id="importGrade" name="grade" class="form-control" required>
+                <option value="">Select grade</option>
+                {% for g in grades %}
+                  <option value="{{ g.id }}">{{ g.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="importSection">Section</label>
+              <select id="importSection" name="section" class="form-control" required>
+                <option value="">---------</option>
+                {% for section in sections %}
+                  <option value="{{ section.id }}" data-grade="{{ section.grade.id }}">
+                    {{ section.name }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="importFile">File</label>
+              <input type="file"
+                     name="student_file"
+                     id="importFile"
+                     class="form-control"
+                     accept=".xlsx,.xls,.csv,.pdf"
+                     required>
+            </div>
+
+            <div style="font-size:.85rem;color:#6b7280;margin-bottom:6px;">
+              Select grade &amp; section, then upload an Excel / PDF file.
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn-submit">Upload &amp; Import</button>
+              <button type="button" class="btn-secondary student-modal-close" data-close="1">Cancel</button>
+            </div>
+
+            <div style="font-size:.8rem;color:#9ca3af;margin-top:4px;">
+              Make sure your file follows the required student name format.
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<form method="post" enctype="multipart/form-data" id="dashboardScanForm" style="display:none;">
+  {% csrf_token %}
+  <input type="hidden" name="student_id" id="hidden_student_id">
+  <input type="hidden" name="mode" id="hidden_mode" value="save">
+  <input type="hidden" name="rescan_id" id="hidden_rescan_id" value="">
+  <input type="file" name="sheet_image" id="dashboardCameraInput" accept="image/*" capture="environment">
+</form>
+
+<div class="modal-overlay" id="uploadModal">
+  <div class="answer-key-modal" style="background:white;border-radius:20px;width:95%;max-width:650px;overflow:hidden;position:relative;">
+      <div style="padding:24px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;background:#f8fafc;">
+          <h3 style="margin:0;font-weight:800;color:#0f172a;" id="modalTitleAk">Answer Key Upload</h3>
+          <button type="button" onclick="closeModal()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#94a3b8;">&times;</button>
+      </div>
+
+      <form id="uploadForm" method="post" enctype="multipart/form-data" action="{% url 'upload_answer_key' %}" style="padding:24px;">
+          {% csrf_token %}
+          <input type="hidden" name="grading_period" value="{{ selected_grading_period.id }}">
+
+          {# ADDED (for edit mode) #}
+          <input type="hidden" name="answer_key_id" id="answer_key_id" value="">
+          <input type="hidden" name="mode" id="ak_mode" value="create">
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+              <div>
+                  <label style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;">Assessment Details</label>
+                  <input type="text" id="quiz_name" name="quiz_name" required placeholder="Name of Quiz" style="width:100%;padding:12px;margin:8px 0;border-radius:10px;border:1px solid #e2e8f0;">
+                  <select id="grade" name="grade" required style="width:100%;padding:12px;margin-bottom:8px;border-radius:10px;border:1px solid #e2e8f0;">
+                      <option value="" disabled selected>Select Grade</option>
+                      {% for g in allowed_grades %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}
+                  </select>
+                  <select id="section" name="section" required disabled style="width:100%;padding:12px;margin-bottom:8px;border-radius:10px;border:1px solid #e2e8f0;"><option value="">Section</option></select>
+                  <select id="subject" name="subject" required disabled style="width:100%;padding:12px;border-radius:10px;border:1px solid #e2e8f0;"><option value="">Subject</option></select>
+              </div>
+              <div>
+                  <label style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;">Bubble Test Key (CSV)</label>
+
+                  {# CHANGED: not required by default here; JS will require in "create" #}
+                  <input type="file" name="answer_key" id="file_key" accept=".csv" style="margin-top:8px;">
+
+                  <div id="current_key_info"></div>
+              </div>
+          </div>
+
+          <button type="submit" id="submitBtn" class="gp-btn active" style="width:100%;margin-top:20px;padding:14px;justify-content:center;display:flex;align-items:center;gap:8px;">
+            <i class="fas fa-save"></i> Save Answer Key
+          </button>
+      </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="quickScanModal">
+  <div class="answer-key-modal" style="background:white;border-radius:20px;width:90%;max-width:400px;padding:24px;text-align:center;">
+      <div style="width:60px;height:60px;background:#ecfdf5;color:#10b981;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 15px;font-size:24px;"><i class="fas fa-qrcode"></i></div>
+      <h3 id="qsStudentName" style="margin:0;font-weight:800;"></h3>
+      <p id="qsQuizName" style="font-size:13px;color:#64748b;margin-top:4px;"></p>
+      <div style="display:flex;flex-direction:column;gap:12px;margin-top:20px;">
+          <button type="button" onclick="triggerCamera()" class="gp-btn active" style="justify-content:center;padding:14px;"><i class="fas fa-camera"></i> Start Scan</button>
+          <button type="button" onclick="closeQuickScan()" class="gp-btn" style="justify-content:center;background:#f1f5f9;color:#475569;border:none;">Cancel</button>
+      </div>
+  </div>
+</div>
+
+<div id="loadingOverlay">
+  <div class="spinner"></div>
+  <p style="margin-top:15px;font-weight:700;">Processing Bubble Sheet...</p>
+</div>
+
+<div style="display:none;">
+  <table id="savedKeysTable">
+      <tbody>
+      {% for key in saved_keys %}
+          <tr data-id="{{ key.id }}"
+            data-grade="{{ key.grade.id }}"
+            data-section="{{ key.section.id }}"
+            data-subject="{{ key.subject.id }}"
+            data-quiz-name="{{ key.quiz_name }}"
+            data-url="{% url 'answer_key_review' key.id %}"
+            data-file-name="{{ key.file.name }}"
+            data-total-items="{{ key.total_items }}"
+            data-total-points="{{ key.total_points }}">
+          </tr>
+        {% endfor %}
+      </tbody>
+  </table>
+</div>
+
+<div class="modal-overlay" id="scanViewerModal">
+  <div class="answer-key-modal" style="background:white;border-radius:20px;width:95%;max-width:980px;max-height:85vh;overflow:hidden;position:relative;">
+    <div class="backdrop-close-area" onclick="closeScanViewer()" aria-hidden="true"></div>
+
+    <div style="position:relative; z-index:2; padding:18px 20px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;background:#f8fafc;">
+      <h3 style="margin:0;font-weight:900;color:#0f172a;">Scan Result</h3>
+      <button type="button" onclick="closeScanViewer()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#94a3b8;">&times;</button>
+    </div>
+
+    <div id="scanViewerBody" style="position:relative; z-index:2; padding:18px;overflow:auto;max-height:calc(85vh - 60px);">
+      <div style="color:#64748b;font-weight:700;">Loading…</div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="scanZoomModal">
+  <div class="answer-key-modal" style="background:white;border-radius:20px;width:95%;max-width:1200px;max-height:90vh;overflow:hidden;position:relative;">
+    <div class="backdrop-close-area" onclick="closeZoom()" aria-hidden="true"></div>
+
+    <div style="position:relative; z-index:2; padding:12px 14px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;background:#f8fafc;">
+      <div style="font-weight:900;">Zoom</div>
+      <button type="button" onclick="closeZoom()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#94a3b8;">&times;</button>
+    </div>
+    <div style="position:relative; z-index:2; padding:12px;overflow:auto;max-height:calc(90vh - 54px);">
+      <img id="scanZoomImg" src="" alt="Zoomed scanned sheet" style="width:100%;height:auto;border-radius:14px;border:1px solid #e5e7eb;">
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="matrixReportModal">
+  <div class="answer-key-modal" style="background:white; border-radius:20px; width:95%; max-width:1100px; max-height:85vh; overflow:hidden; position:relative; display:flex; flex-direction:column;">
+    
+    <div style="position:relative; z-index:2; padding:18px 20px; border-bottom:1px solid #f1f5f9; display:flex; justify-content:space-between; align-items:center; background:#f8fafc; gap:10px; flex-wrap:wrap; flex-shrink: 0;">
+      <div>
+        <h3 style="margin:0; font-weight:900; color:#0f172a;">Class Report</h3>
+        <div id="matrixReportSubtitle" style="margin-top:3px; color:#64748b; font-weight:700; font-size:12px;"></div>
+      </div>
+
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <button type="button" class="gp-btn" onclick="printMatrixReport()" style="background:#f1f5f9;color:#0f172a;border:none;">
+          <i class="fas fa-print"></i> Print
+        </button>
+        <button type="button" class="gp-btn" onclick="exportMatrixReportPDF()" style="background:#f1f5f9;color:#0f172a;border:none;">
+          <i class="fas fa-file-pdf"></i> Export PDF
+        </button>
+        <button type="button" class="gp-btn" onclick="exportMatrixReportExcel()" style="background:#f1f5f9;color:#0f172a;border:none;">
+          <i class="fas fa-file-excel"></i> Export Excel
+        </button>
+        <button type="button" onclick="closeMatrixReport()" style="background:none; border:none; font-size:22px; cursor:pointer; color:#94a3b8;">&times;</button>
+      </div>
+    </div>
+
+    <div id="matrixReportBody" style="padding: 20px; overflow-y: auto; flex-grow: 1;">
+        </div>
+  </div>
+</div>
+
+  </div>
+</div>
+
+<div class="modal-overlay" id="tallyPerItemModal">
+  <div class="answer-key-modal" style="background:white;border-radius:20px;width:95%;max-width:1100px;max-height:85vh;overflow:hidden;position:relative;">
+    <div class="backdrop-close-area" onclick="closeTallyPerItem()" aria-hidden="true"></div>
+
+   <div style="position:relative; z-index:2; padding:18px 20px;border-bottom:1px solid #f1f5f9;background:#f8fafc;display:grid;grid-template-columns: 1fr auto;align-items:center;gap:10px;">
+  <div>
+    <h3 style="margin:0;font-weight:900;color:#0f172a;">Tally Per Item</h3>
+    <div id="tallyPerItemSubtitle" style="margin-top:3px;color:#64748b;font-weight:700;font-size:12px;"></div>
+  </div>
+
+  <div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;">
+    <button type="button"
+      class="gp-btn"
+      onclick="printTallyPerItem()"
+      style="background:#f1f5f9;color:#0f172a;border:none;">
+      <i class="fas fa-print"></i> Print
+    </button>
+
+    <button type="button"
+      class="gp-btn"
+      onclick="exportTallyPerItemPDF()"
+      style="background:#f1f5f9;color:#0f172a;border:none;">
+      <i class="fas fa-file-pdf"></i> Export PDF
+    </button>
+
+    <button type="button"
+      class="gp-btn"
+      onclick="exportTallyPerItemExcel()"
+      style="background:#f1f5f9;color:#0f172a;border:none;">
+      <i class="fas fa-file-excel"></i> Export Excel
+    </button>
+
+    <button type="button" onclick="closeTallyPerItem()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#94a3b8;">&times;</button>
+  </div>
+</div>
+    
+
+    <div style="position:relative; z-index:2; padding:0; overflow:hidden; max-height:calc(85vh - 70px);">
+      <iframe
+        id="tallyPerItemFrame"
+        src="about:blank"
+        style="width:100%; height:calc(85vh - 70px); border:0; display:block;"
+      ></iframe>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<script>
+  const ASSIGNMENTS = {{ assigned_classes_json|safe }};
+  let currentActiveKeyId = null;
+  const TALLY_URL_TEMPLATE = "{% url 'item_analysis' 0 %}";
+
+  /* STATE: keep scan section open + keep selected section open */
+  const SCAN_SECTION_OPEN_KEY = "SCAN_CAPTURE_OPEN";   // "1" | "0"
+  const SCAN_ACTIVE_BOX_KEY   = "SCAN_ACTIVE_BOX_ID";  // "box-<compositeKey>"
+  const DASH_FROM_SCAN_KEY    = "DASH_FROM_SCAN";
+
+  function escapeHtml(str) {
+    return String(str)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  function escapeJsString(str) {
+    return String(str)
+      .replaceAll("\\", "\\\\")
+      .replaceAll("'", "\\'")
+      .replaceAll("\n", "\\n")
+      .replaceAll("\r", "\\r");
+  }
+
+function hasValue(v){
+  return v !== null && v !== undefined && String(v).trim() !== "";
+}
+
+function safeScoreText(v){
+  // always return a safe printable string (including 0)
+  return hasValue(v) ? String(v) : "";
+}
+  /* =========================
+     ACCORDION HELPERS
+     ========================= */
+  function closeAllClassBoxes(){
+    document.querySelectorAll('#classBoxesContainer .class-box').forEach(box => {
+      box.classList.remove('is-open');
+    });
+
+    // remove "has-open" state so grid returns to multi-column
+    const container = document.getElementById('classBoxesContainer');
+    if (container) container.classList.remove('has-open');
+  }
+
+
+  function openClassBoxById(boxId){
+    if (!boxId) return;
+    const box = document.getElementById(boxId);
+    if (!box) return;
+
+    closeAllClassBoxes();
+
+    // open selected
+    box.classList.add('is-open');
+
+    // set container to single-column mode
+    const container = document.getElementById('classBoxesContainer');
+    if (container) container.classList.add('has-open');
+
+    sessionStorage.setItem(SCAN_ACTIVE_BOX_KEY, boxId);
+
+    // optional: scroll the opened box into view nicely
+    box.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+
+  function toggleClassBox(boxId){
+    const box = document.getElementById(boxId);
+    if (!box) return;
+
+    const isOpen = box.classList.contains('is-open');
+    if (isOpen){
+      box.classList.remove('is-open');
+      sessionStorage.removeItem(SCAN_ACTIVE_BOX_KEY);
+
+      // return to grid multi-column when none is open
+      const container = document.getElementById('classBoxesContainer');
+      if (container) container.classList.remove('has-open');
+
+      return;
+    }
+
+    openClassBoxById(boxId);
+  }
+
+  function restoreAccordionState(){
+    const active = sessionStorage.getItem(SCAN_ACTIVE_BOX_KEY);
+    if (active) openClassBoxById(active);
+    else closeAllClassBoxes(); // default: ALL CLOSED
+  }
+
+  function showScanCaptureSection(keepActive=true){
+    const sec = document.getElementById('scanCaptureSection');
+    if (!sec) return;
+    sec.style.display = "block";
+    sessionStorage.setItem(SCAN_SECTION_OPEN_KEY, "1");
+    if (!keepActive) sessionStorage.removeItem(SCAN_ACTIVE_BOX_KEY);
+    restoreAccordionState();
+  }
+
+  /* =========================
+     Answer key modal mode handlers
+     ========================= */
+  function resetAssessmentModalToCreate(){
+    const title = document.getElementById("modalTitleAk");
+    const btn   = document.getElementById("submitBtn");
+    const idEl  = document.getElementById("answer_key_id");
+    const mode  = document.getElementById("ak_mode");
+    const file  = document.getElementById("file_key");
+    const info  = document.getElementById("current_key_info");
+
+    if (title) title.innerText = "Answer Key Upload";
+    if (btn) btn.innerHTML = `<i class="fas fa-save"></i> Save Answer Key`;
+    if (idEl) idEl.value = "";
+    if (mode) mode.value = "create";
+
+    if (file){
+      file.required = true;   // create requires CSV
+      file.value = "";
+    }
+    if (info) info.innerHTML = "";
+  }
+
+  function editAssessment(id, quizName, gradeId, sectionId, subjectId, fileName, boxId){
+    // keep Scan&Capture open + keep the current section open
+    sessionStorage.setItem(SCAN_SECTION_OPEN_KEY, "1");
+    if (boxId) sessionStorage.setItem(SCAN_ACTIVE_BOX_KEY, boxId);
+    showScanCaptureSection(true);
+
+    const modal = document.getElementById("uploadModal");
+    const form  = document.getElementById("uploadForm");
+
+    if (form) form.reset();
+    if (modal) modal.classList.add("show");
+
+    document.getElementById("modalTitleAk").innerText = "Edit Answer Key";
+    document.getElementById("submitBtn").innerHTML = `<i class="fas fa-save"></i> Update Answer Key`;
+
+    document.getElementById("answer_key_id").value = id;
+    document.getElementById("ak_mode").value = "edit";
+
+    document.getElementById("quiz_name").value = quizName || "";
+    document.getElementById("grade").value = gradeId;
+
+    updateSections(gradeId, sectionId);
+    updateSubjects(gradeId, sectionId, subjectId);
+
+    const file = document.getElementById("file_key");
+    file.required = false;
+    file.value = "";
+
+    const info = document.getElementById("current_key_info");
+    info.innerHTML = `
+      <div style="margin-top:10px;padding:10px;border-radius:12px;border:1px solid #e2e8f0;background:#f8fafc;">
+        <div style="font-size:11px;color:#64748b;font-weight:800;text-transform:uppercase;">Current CSV</div>
+        <div style="margin-top:4px;font-weight:800;color:#0f172a;">${escapeHtml(fileName || "")}</div>
+        <div style="margin-top:6px;font-size:12px;color:#64748b;">
+          Upload a new CSV only if you want to replace it.
+        </div>
+      </div>
+    `;
+  }
+
+    function getExistingKeys() {
+      const data = {};
+
+      document.querySelectorAll('#savedKeysTable tbody tr').forEach(row => {
+        const compositeKey = `${row.dataset.grade}-${row.dataset.section}-${row.dataset.subject}`;
+        if (!data[compositeKey]) data[compositeKey] = [];
+
+        data[compositeKey].push({
+          id: row.dataset.id,
+          created: row.dataset.created || "",          // optional
+          url: row.dataset.url,
+          quizName: row.dataset.quizName,
+          gradeId: row.dataset.grade,
+          sectionId: row.dataset.section,
+          subjectId: row.dataset.subject,
+          fileName: row.dataset.fileName.split('/').pop(),
+          totalItems: Number(row.dataset.totalItems || 0),
+          totalPoints: Number(row.dataset.totalPoints || 0),
+        });
+      });
+
+      // ✅ sort oldest first (front)
+      Object.keys(data).forEach(key => {
+        data[key].sort((a, b) => {
+          // if created date exists, use it
+          if (a.created && b.created) return new Date(a.created) - new Date(b.created);
+          // fallback: numeric id (auto-increment => creation order)
+          return Number(a.id) - Number(b.id);
+        });
+      });
+
+      return data;
+    }
+
+  function getQuizScanCounts(quizzes, students){
+    const total = (students || []).length;
+    const counts = {};
+    (quizzes || []).forEach(q => counts[String(q.id)] = 0);
+
+    (students || []).forEach(s => {
+      (quizzes || []).forEach(q => {
+        const scanObj = (s.scans && s.scans[String(q.id)]) ? s.scans[String(q.id)] : null;
+        if (scanObj && scanObj.scan_id) counts[String(q.id)] += 1;
+      });
+    });
+
+    return { total, counts };
+  }
+
+  function normalize(str){
+    return (str || "").toString().trim().toLowerCase();
+  }
+
+  function compareStudents(a, b){
+    // last name first, then first name, then middle initial (optional)
+    const aLast = normalize(a.last_name);
+    const bLast = normalize(b.last_name);
+
+    if (aLast !== bLast) return aLast.localeCompare(bLast);
+
+    const aFirst = normalize(a.full_name);
+    const bFirst = normalize(b.full_name);
+
+    if (aFirst !== bFirst) return aFirst.localeCompare(bFirst);
+
+    const aMi = normalize(a.middle_initial);
+    const bMi = normalize(b.middle_initial);
+
+    return aMi.localeCompare(bMi);
+  }
+
+
+  function renderClassBoxes() {
+  const container = document.getElementById('classBoxesContainer');
+  const existingKeys = getExistingKeys();
+  if (!container) return;
+
+  // ✅ remove numbering like "10. ", "10) ", "10- ", "10: "
+  function stripNumberPrefix(text) {
+    return (text || "")
+      .toString()
+      .trim()
+      .replace(/^\s*\d+\s*[\.\)\-:]\s*/g, "")
+      .trim();
+  }
+
+  // ✅ normalize gender coming from backend
+  function getGenderValue(s) {
+    const g = (s.gender || s.sex || "").toString().trim().toLowerCase();
+    if (g.startsWith("m")) return "Male";
+    if (g.startsWith("f")) return "Female";
+    return "Unknown";
+  }
+
+  // ✅ build display name (and remove any leading numbers)
+  function getDisplayName(s) {
+    const raw = s.last_name
+      ? `${s.last_name}, ${s.full_name || ""}`
+      : (s.full_name || "");
+    return stripNumberPrefix(raw);
+  }
+
+  container.innerHTML = ASSIGNMENTS.map(a => {
+    const compositeKey = `${a.grade_id}-${a.section_id}-${a.subject_id}`;
+    const boxId = `box-${compositeKey}`;
+    const quizzes = existingKeys[compositeKey] || [];
+
+    // ✅ all students sorted
+    const allStudents = (a.students || []).slice().sort(compareStudents);
+
+    // ✅ grouped lists
+    const maleStudents = allStudents.filter(s => getGenderValue(s) === "Male");
+    const femaleStudents = allStudents.filter(s => getGenderValue(s) === "Female");
+    const unknownStudents = allStudents.filter(s => getGenderValue(s) === "Unknown");
+
+    // ✅ counts must use allStudents (NOT undefined "students")
+    const { total: totalStudents, counts: scanCounts } = getQuizScanCounts(quizzes, allStudents);
+
+    const headerHtml = `
+      <th style="padding:12px;text-align:left;background:#f8fafc;border-bottom:2px solid #e2e8f0;color:#64748b;position:sticky;left:0;z-index:2;">Student</th>
+      ${quizzes.map(q => `
+        <th style="padding:12px;text-align:center;background:#f8fafc;border-bottom:2px solid #e2e8f0;min-width:120px;">
+          <div style="margin-top:4px;font-weight:700;">${escapeHtml(q.quizName || "")}</div>
+          <div style="margin-top:4px;font-size:11px;font-weight:800;color:#64748b;">
+            Scanned: ${scanCounts[String(q.id)] || 0} / ${totalStudents}
+          </div>
+          <div style="margin-top:2px;font-size:11px;font-weight:900;color:#0f172a;">
+            Items: ${q.totalItems || 0}
+          </div>
+
+          <div style="margin-top:6px;display:flex;gap:4px;justify-content:center;">
+            <button type="button"
+              onclick="window.location.href='${q.url}'"
+              class="btn-icon"
+              title="View Key">
+              <i class="fas fa-eye"></i>
+            </button>
+
+            <button type="button"
+              onclick="editAssessment(
+                '${q.id}',
+                '${escapeJsString(q.quizName || "")}',
+                '${q.gradeId}',
+                '${q.sectionId}',
+                '${q.subjectId}',
+                '${escapeJsString(q.fileName || "")}',
+                '${boxId}'
+              )"
+              class="btn-icon"
+              title="Edit">
+              <i class="fas fa-edit"></i>
+            </button>
+          </div>
+        </th>
+      `).join('')}
+    `;
+
+    function renderGroup(label, list) {
+      if (!list.length) return "";
+
+      const colspan = 1 + quizzes.length;
+
+      const groupHeader = `
+        <tr>
+          <td colspan="${colspan}"
+              style="padding:10px 12px;background:#f1f5f9;color:#0f172a;
+                     font-weight:900;letter-spacing:.5px;text-transform:uppercase;
+                     border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;">
+            ${label} (${list.length})
+          </td>
+        </tr>
+      `;
+
+      const groupRows = list.map(s => {
+        const displayName = getDisplayName(s);
+
+        return `
+          <tr style="border-bottom:1px solid #f1f5f9;">
+            <td style="padding:12px;font-weight:600;background:white;position:sticky;left:0;border-right:1px solid #f1f5f9;">
+              ${escapeHtml(displayName)}
+            </td>
+
+            ${quizzes.map(q => {
+              const scanObj = (s.scans && s.scans[String(q.id)]) ? s.scans[String(q.id)] : null;
+              const scoreText = safeScoreText(scanObj ? scanObj.score : null);
+              const scanId = scanObj ? scanObj.scan_id : null;
+
+              return `
+                <td style="padding:12px;text-align:center;">
+                  <div style="display:flex;align-items:center;justify-content:center;gap:8px;">
+                    ${hasValue(scoreText) && hasValue(scanId) ? `
+                      <button type="button"
+                        onclick="openScanViewer('${scanId}')"
+                        title="View scan result"
+                        style="cursor:pointer;background:#eff6ff;color:#1d4ed8;border:1px solid #3b82f6;border-radius:6px;font-weight:800;padding:4px 10px;font-size:13px;">
+                        ${escapeHtml(scoreText)}
+                      </button>
+
+                      <button type="button"
+                        onclick="startRescan('${q.id}', '${scanId}', '${s.id}', \`${escapeJsString(s.full_name || "")}\`, \`${escapeJsString(q.quizName || "")}\`) "
+                        class="scan-btn scanned"
+                        title="Click to rescan">
+                        <i class="fas fa-check"></i>
+                      </button>
+                    ` : `
+                      <button type="button"
+                        onclick="openQuickScan('${q.id}', '${s.id}', \`${escapeJsString(s.full_name || "")}\`, \`${escapeJsString(q.quizName || "")}\`) "
+                        class="scan-btn"
+                        title="Start scan">
+                        <i class="fas fa-camera"></i>
+                      </button>
+                    `}
+                  </div>
+                </td>
+              `;
+            }).join('')}
+          </tr>
+        `;
+      }).join("");
+
+      return groupHeader + groupRows;
+    }
+
+    const rowsHtml =
+      renderGroup("Male", maleStudents) +
+      renderGroup("Female", femaleStudents) +
+      renderGroup("Uncategorized", unknownStudents);
+
+    return `
+      <div class="class-box" id="${boxId}" style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
+        <div class="class-box-header"
+             onclick="toggleClassBox('${boxId}')"
+             style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0;gap:10px;">
+
+          <div style="min-width:0;">
+            <h3 style="margin:0;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              Grade ${escapeHtml(a.grade_name)} - ${escapeHtml(a.section_name)}
+            </h3>
+            <p style="margin:0;color:#64748b;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              ${escapeHtml(a.subject_name)}
+            </p>
+          </div>
+
+          <div style="display:flex;gap:8px;align-items:center;flex:0 0 auto;" onclick="event.stopPropagation();">
+            <button type="button"
+              class="btn-icon"
+              title="Open class report"
+              onclick="openMatrixReport('${a.grade_id}','${a.section_id}','${a.subject_id}')">
+              <i class="fas fa-chart-column"></i>
+            </button>
+
+            <button type="button"
+              onclick="preFillModal('${a.grade_id}', '${a.section_id}', '${a.subject_id}', '${boxId}')"
+              class="gp-btn active">
+              <i class="fas fa-plus"></i> Add Quiz
+            </button>
+          </div>
+        </div>
+
+        <div class="class-box-body">
+          <div style="overflow-x:auto;border:1px solid #f1f5f9;border-radius:8px;margin-top:15px;">
+            <table style="width:100%;border-collapse:collapse;font-size:12px;">
+              <thead><tr>${headerHtml}</tr></thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // after render: keep ONLY the selected one open, else all closed
+  restoreAccordionState();
+}
+
+  function startRescan(keyId, scanId, studentId, studentName, quizName) {
+      currentActiveKeyId = keyId;
+      document.getElementById('hidden_student_id').value = studentId;
+      document.getElementById('hidden_mode').value = "rescan";
+      document.getElementById('hidden_rescan_id').value = scanId;
+
+      document.getElementById('qsStudentName').innerText = studentName;
+      document.getElementById('qsQuizName').innerText = `Re-scan: ${quizName}`;
+      document.getElementById('quickScanModal').classList.add('show');
+  }
+
+  function openQuickScan(keyId, studentId, studentName, quizName) {
+      currentActiveKeyId = keyId;
+      document.getElementById('hidden_student_id').value = studentId;
+      document.getElementById('hidden_mode').value = "save";
+      document.getElementById('hidden_rescan_id').value = "";
+
+      document.getElementById('qsStudentName').innerText = studentName;
+      document.getElementById('qsQuizName').innerText = `Assessment: ${quizName}`;
+      document.getElementById('quickScanModal').classList.add('show');
+  }
+
+  function triggerCamera() {
+      // mark to restore scan section after scan/back
+      sessionStorage.setItem(DASH_FROM_SCAN_KEY, "1");
+      sessionStorage.setItem(SCAN_SECTION_OPEN_KEY, "1");
+
+      const form = document.getElementById('dashboardScanForm');
+      const input = document.getElementById('dashboardCameraInput');
+      const gpId = "{{ selected_grading_period.id|default:'' }}";
+      let actionUrl = `/scan/${currentActiveKeyId}/`;
+      if (gpId) actionUrl += `?gp=${gpId}`;
+      form.action = actionUrl;
+      input.value = "";
+      input.click();
+  }
+
+  async function openScanViewer(scanId){
+    const modal = document.getElementById("scanViewerModal");
+    const body = document.getElementById("scanViewerBody");
+
+    modal.classList.add("show");
+    body.innerHTML = `<div style="color:#64748b;font-weight:800;">Loading…</div>`;
+
+    try{
+      const res = await fetch(`/scan/modal/${scanId}/`, {
+        headers: { "X-Requested-With": "XMLHttpRequest" }
+      });
+
+      if(!res.ok){
+        body.innerHTML = `<div style="color:#b91c1c;font-weight:800;">Failed to load scan result.</div>`;
+        return;
+      }
+
+      const html = await res.text();
+      body.innerHTML = html;
+
+      const img = body.querySelector("#modalAnnotatedSheetImg");
+      if(img){
+        img.addEventListener("click", () => {
+          document.getElementById("scanZoomImg").src = img.src;
+          document.getElementById("scanZoomModal").classList.add("show");
+        });
+      }
+
+    }catch(err){
+      console.error(err);
+      body.innerHTML = `<div style="color:#b91c1c;font-weight:800;">Error loading scan result.</div>`;
+    }
+  }
+
+  function closeScanViewer(){
+    document.getElementById("scanViewerModal").classList.remove("show");
+    document.getElementById("scanViewerBody").innerHTML = "";
+  }
+  function closeZoom(){
+    document.getElementById("scanZoomModal").classList.remove("show");
+    document.getElementById("scanZoomImg").src = "";
+  }
+
+  function preFillModal(gId='', nId='', sId='', boxId='') {
+      // keep Scan&Capture open + keep current section open
+      sessionStorage.setItem(SCAN_SECTION_OPEN_KEY, "1");
+      if (boxId) sessionStorage.setItem(SCAN_ACTIVE_BOX_KEY, boxId);
+      showScanCaptureSection(true);
+
+      const form = document.getElementById('uploadForm');
+      form.reset();
+
+      // important: ensure create mode defaults
+      resetAssessmentModalToCreate();
+
+      document.getElementById('uploadModal').classList.add('show');
+      if(gId) {
+          document.getElementById('grade').value = gId;
+          updateSections(gId, nId);
+          if(nId) updateSubjects(gId, nId, sId);
+      }
+  }
+
+  function updateSections(gId, sel=null) {
+      const nSelect = document.getElementById('section');
+      const filtered = [...new Map(ASSIGNMENTS.filter(a => String(a.grade_id) === String(gId)).map(a => [a.section_id, a])).values()];
+      nSelect.innerHTML = `<option value="">Section</option>` + filtered.map(s => `<option value="${s.section_id}">${s.section_name}</option>`).join('');
+      nSelect.disabled = false;
+      if(sel) nSelect.value = sel;
+  }
+
+  function updateSubjects(gId, nId, sel=null) {
+      const sSelect = document.getElementById('subject');
+      const filtered = ASSIGNMENTS.filter(a => String(a.grade_id) === String(gId) && String(a.section_id) === String(nId));
+      sSelect.innerHTML = `<option value="">Subject</option>` + filtered.map(s => `<option value="${s.subject_id}">${s.subject_name}</option>`).join('');
+      sSelect.disabled = false;
+      if(sel) sSelect.value = sel;
+  }
+
+  function closeModal() {
+    document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('show'));
+
+    // reset answer key modal after close so it won't stay in edit mode
+    const uploadForm = document.getElementById("uploadForm");
+    if (uploadForm) uploadForm.reset();
+    resetAssessmentModalToCreate();
+
+    // DO NOT CLOSE scanCaptureSection; keep it open
+    if (sessionStorage.getItem(SCAN_SECTION_OPEN_KEY) === "1") {
+      showScanCaptureSection(true);
+    }
+  }
+  function closeQuickScan() { document.getElementById('quickScanModal').classList.remove('show'); }
+
+  /* =========================
+     STUDENTS MANAGE RECORDS JS
+     ========================= */
+  (function(){
+    const studentsSection = document.getElementById("studentsManageSection");
+    const scanSection = document.getElementById("scanCaptureSection");
+    const triggerStudents = document.getElementById("triggerStudents");
+    const triggerScan = document.getElementById("triggerScan");
+    const backBtn = document.getElementById("backToDashboardBtn");
+
+    function showStudents(){
+      if (scanSection) scanSection.style.display = "none";
+      if (studentsSection) studentsSection.style.display = "block";
+      if (studentsSection) studentsSection.scrollIntoView({behavior:"smooth"});
+    }
+    function hideStudents(){
+      if (studentsSection) studentsSection.style.display = "none";
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    if (triggerStudents) triggerStudents.addEventListener("click", showStudents);
+    if (backBtn) backBtn.addEventListener("click", hideStudents);
+
+    // Section filtering
+    const gradeSelect   = document.getElementById('gradeSelect');
+    const sectionSelect = document.getElementById('sectionSelect');
+    const importGrade   = document.getElementById('importGrade');
+    const importSection = document.getElementById('importSection');
+
+    function filterSections(gradeSelectEl, sectionSelectEl) {
+      const selectedGrade = gradeSelectEl.value;
+      const options = sectionSelectEl.querySelectorAll('option');
+
+      options.forEach(opt => {
+        const gradeAttr = opt.getAttribute('data-grade');
+        if (!gradeAttr) { opt.style.display = ''; return; }
+
+        if (!selectedGrade || gradeAttr !== selectedGrade) {
+          opt.style.display = 'none';
+          if (opt.selected) opt.selected = false;
+        } else {
+          opt.style.display = '';
+        }
+      });
+
+      if (!selectedGrade) { sectionSelectEl.value = ''; return; }
+
+      const current = sectionSelectEl.options[sectionSelectEl.selectedIndex];
+      if (!current || current.style.display === 'none') {
+        const firstVisible = Array.from(options).find(opt => opt.style.display !== 'none' && opt.value);
+        if (firstVisible) firstVisible.selected = true;
+        else sectionSelectEl.value = '';
+      }
+    }
+
+    if (gradeSelect && sectionSelect) {
+      filterSections(gradeSelect, sectionSelect);
+      gradeSelect.addEventListener('change', () => filterSections(gradeSelect, sectionSelect));
+    }
+    if (importGrade && importSection) {
+      filterSections(importGrade, importSection);
+      importGrade.addEventListener('change', () => filterSections(importGrade, importSection));
+    }
+
+    // Students modal open
+    const studentsModal = document.getElementById('studentsModal');
+    const importModal   = document.getElementById('importModal');
+    const modalTitle    = document.getElementById('modalTitle');
+    const sectionBlocks = document.querySelectorAll('#studentsManageSection .js-section-block');
+    const studentSearchInput = document.getElementById('studentSearchInput');
+
+    function openStudentsModal(gradeId, sectionId, labelText) {
+      sectionBlocks.forEach(block => {
+        const g = block.getAttribute('data-grade');
+        const s = block.getAttribute('data-section');
+        block.style.display = (g === gradeId && s === sectionId) ? 'block' : 'none';
+      });
+
+      if (modalTitle) modalTitle.textContent = labelText;
+      if (studentSearchInput) studentSearchInput.value = '';
+
+      if (studentsModal) studentsModal.classList.add('is-open');
+    }
+
+    document.querySelectorAll('#studentsManageSection .js-open-students').forEach(link => {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        const gradeId   = this.getAttribute('data-grade');
+        const sectionId = this.getAttribute('data-section');
+
+        const row = this.closest('.grade-row');
+        const labelText =
+          row.querySelector('.grade-label').textContent.trim()
+          + ' – ' +
+          row.querySelector('.section-pill .section-name').textContent.trim();
+
+        openStudentsModal(gradeId, sectionId, labelText);
+      });
+    });
+
+    // Close modals
+    document.querySelectorAll('#studentsManageSection .student-modal').forEach(modal => {
+      modal.addEventListener('click', function(e) {
+        if (e.target === modal || e.target.dataset.close === '1') {
+          modal.classList.remove('is-open');
+        }
+      });
+    });
+
+    // Import modal
+    const openImportModalBtn = document.getElementById('openImportModalBtn');
+    if (openImportModalBtn && importModal) {
+      openImportModalBtn.addEventListener('click', function() {
+        if (importGrade && importSection) filterSections(importGrade, importSection);
+        importModal.classList.add('is-open');
+      });
+    }
+
+    // Edit student in form
+    const studentForm      = document.getElementById('studentForm');
+    const studentIdField   = document.getElementById('studentIdField');
+    const studentSubmitBtn = document.getElementById('studentSubmitBtn');
+    const cancelEditBtn    = document.getElementById('cancelEditStudent');
+    const editHint         = document.getElementById('editHint');
+
+    function startEditStudent(data) {
+      if (!gradeSelect || !sectionSelect) return;
+
+      gradeSelect.value = data.gradeId;
+      filterSections(gradeSelect, sectionSelect);
+      sectionSelect.value = data.sectionId;
+
+      const fullNameInput   = document.getElementById('id_full_name');
+      const middleInitInput = document.getElementById('id_middle_initial');
+      const lastNameInput   = document.getElementById('id_last_name');
+
+      if (fullNameInput)   fullNameInput.value   = data.fullName || '';
+      if (middleInitInput) middleInitInput.value = data.middleInitial || '';
+      if (lastNameInput)   lastNameInput.value   = data.lastName || '';
+
+      if (studentIdField) studentIdField.value = data.id || '';
+
+      if (studentSubmitBtn) studentSubmitBtn.textContent = 'Save changes';
+      if (editHint) editHint.style.display = 'inline';
+    }
+
+    function cancelEdit() {
+      if (studentSubmitBtn) studentSubmitBtn.textContent = 'Add Student';
+      if (editHint) editHint.style.display = 'none';
+
+      if (studentIdField) studentIdField.value = '';
+      if (studentForm) studentForm.reset();
+
+      if (gradeSelect && sectionSelect) {
+        gradeSelect.value = '';
+        filterSections(gradeSelect, sectionSelect);
+      }
+    }
+
+    document.querySelectorAll('#studentsManageSection .js-edit-student').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const data = {
+          id: this.dataset.studentId,
+          fullName: this.dataset.studentName,
+          gradeId: this.dataset.gradeId,
+          sectionId: this.dataset.sectionId,
+          lastName: this.dataset.lastName || '',
+          middleInitial: this.dataset.middleInitial || ''
+        };
+        startEditStudent(data);
+        if (studentsModal) studentsModal.classList.remove('is-open');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    });
+
+    if (cancelEditBtn) cancelEditBtn.addEventListener('click', cancelEdit);
+
+    // Search filter inside modal
+    function filterStudents(term) {
+      const query = term.toLowerCase();
+      document.querySelectorAll('#studentsManageSection .js-section-block').forEach(block => {
+        if (block.style.display === 'none') return;
+
+        block.querySelectorAll('.modal-student-row').forEach(row => {
+          const nameEl = row.querySelector('.modal-student-name');
+          const text   = (nameEl?.textContent || '').toLowerCase();
+          row.style.display = (!query || text.includes(query)) ? 'flex' : 'none';
+        });
+      });
+    }
+
+    if (studentSearchInput) {
+      studentSearchInput.addEventListener('input', function () {
+        filterStudents(this.value);
+      });
+    }
+
+    // Scan card clicked:
+    // - Show all handled sections
+    // - Keep ALL CLOSED by default (open only when clicked)
+    if (triggerScan) {
+      triggerScan.addEventListener('click', () => {
+        if (studentsSection) studentsSection.style.display = "none";
+
+        const sec = document.getElementById('scanCaptureSection');
+        const willShow = (sec.style.display === 'none');
+
+        sec.style.display = willShow ? 'block' : 'none';
+
+        if (sec.style.display === 'block') {
+          sessionStorage.setItem(SCAN_SECTION_OPEN_KEY, "1");
+
+          // Default: show all sections but CLOSED
+          sessionStorage.removeItem(SCAN_ACTIVE_BOX_KEY);
+          closeAllClassBoxes();
+
+          sec.scrollIntoView({ behavior: 'smooth' });
+        } else {
+          sessionStorage.setItem(SCAN_SECTION_OPEN_KEY, "0");
+        }
+      });
+    }
+  })();
+
+  /* =========================
+     DOM READY
+     ========================= */
+  document.addEventListener("DOMContentLoaded", () => {
+      renderClassBoxes();
+
+      // ensure default is create mode
+      resetAssessmentModalToCreate();
+
+      // restore Scan&Capture open state if needed (after upload/edit/scan/back)
+      if (sessionStorage.getItem(SCAN_SECTION_OPEN_KEY) === "1") {
+        showScanCaptureSection(true);
+      } else {
+        // default closed
+        const sec = document.getElementById('scanCaptureSection');
+        if (sec) sec.style.display = "none";
+      }
+
+      document.getElementById('dashboardCameraInput').addEventListener('change', function() {
+          if (!this.files || !this.files[0]) return;
+
+          if (!currentActiveKeyId) {
+              alert("No assessment selected. Please click scan again.");
+              return;
+          }
+
+          if (!document.getElementById('hidden_student_id').value) {
+              alert("No student selected.");
+              return;
+          }
+
+          closeQuickScan();
+          closeScanViewer();
+          closeZoom();
+
+          document.getElementById('loadingOverlay').style.display = "flex";
+          document.getElementById('dashboardScanForm').submit();
+      });
+
+      document.getElementById('grade').addEventListener('change', (e) => updateSections(e.target.value));
+      document.getElementById('section').addEventListener('change', (e) => updateSubjects(document.getElementById('grade').value, e.target.value));
+
+      document.addEventListener("keydown", (e) => {
+        if(e.key === "Escape"){
+          closeZoom();
+          closeScanViewer();
+          closeModal();
+          closeMatrixReport();
+
+          // also close students modals if open
+          const sm = document.getElementById("studentsModal");
+          const im = document.getElementById("importModal");
+          if (sm) sm.classList.remove("is-open");
+          if (im) im.classList.remove("is-open");
+        }
+      });
+  });
+
+let MATRIX_CTX = { gradeId: null, sectionId: null, subjectId: null };
+let MATRIX_QUIZZES = [];
+let MATRIX_STUDENTS = [];
+
+function getNumerator(scoreVal){
+  if (scoreVal === null || scoreVal === undefined) return "";
+  // if already number
+  if (typeof scoreVal === "number") return String(scoreVal);
+  const parts = String(scoreVal).split("/");
+  return (parts[0] || "").trim();
+}
+
+
+function closeMatrixReport(){
+  document.getElementById("matrixReportModal").classList.remove("show");
+  document.getElementById("matrixReportBody").innerHTML = "";
+  document.getElementById("matrixReportSubtitle").innerText = "";
+  MATRIX_CTX = { gradeId: null, sectionId: null, subjectId: null };
+  MATRIX_QUIZZES = [];
+  MATRIX_STUDENTS = [];
+}
+
+
+function openMatrixReport(gradeId, sectionId, subjectId){
+  MATRIX_CTX = { gradeId, sectionId, subjectId }; 
+
+  const modal = document.getElementById("matrixReportModal");
+  const body  = document.getElementById("matrixReportBody");
+  const sub   = document.getElementById("matrixReportSubtitle");
+
+  const existingKeys = getExistingKeys();
+  const compositeKey = `${gradeId}-${sectionId}-${subjectId}`;
+
+  const quizzes = existingKeys[compositeKey] || [];
+  MATRIX_QUIZZES = quizzes;
+
+  const assignment = ASSIGNMENTS.find(a =>
+    String(a.grade_id) === String(gradeId) &&
+    String(a.section_id) === String(sectionId) &&
+    String(a.subject_id) === String(subjectId)
+  );
+
+  const students = (assignment && assignment.students) ? assignment.students : [];
+  MATRIX_STUDENTS = students;
+
+  if (assignment){
+    sub.innerText = `Grade ${assignment.grade_name} — ${assignment.section_name} | ${assignment.subject_name}`;
+  }
+
+  modal.classList.add("show");
+
+  if (!quizzes.length){
+    body.innerHTML = `
+      <div style="padding:14px;border:1px solid #e2e8f0;border-radius:14px;background:#f8fafc;">
+        <div style="font-weight:900;color:#0f172a;">No assessments found</div>
+      </div>`;
+    return;
+  }
+
+  function getGenderValue(s){
+    const g = (s.gender || s.sex || "").toString().trim().toLowerCase();
+    if (g.startsWith("m")) return "Male";
+    if (g.startsWith("f")) return "Female";
+    return "Unknown";
+  }
+
+  function stripNumberPrefix(text){
+    return (text || "").toString().trim().replace(/^\s*\d+\s*[\.\)\-:]\s*/g, "").trim();
+  }
+
+  const headerHtml = `
+    <th style="padding:12px;text-align:left;background:#f8fafc;border-bottom:2px solid #e2e8f0;color:#64748b;position:sticky;left:0;z-index:2;">
+      Student
+    </th>
+    ${quizzes.map(q => `
+      <th style="padding:12px;text-align:center;background:#f8fafc;border-bottom:2px solid #e2e8f0;min-width:180px;">
+
+        <div style="margin-top:4px;font-weight:800;color:#0f172a;">
+          ${escapeHtml(q.quizName || "")}
+        </div>
+
+        <div style="margin-top:2px;font-size:11px;font-weight:900;color:#64748b;">
+          Items: ${q.totalItems || 0}
+        </div>
+
+        <div style="margin-top:8px;display:flex;justify-content:center;gap:6px;flex-wrap:wrap;">
+          <button type="button"
+            class="btn-icon"
+            title="Tally Per Item"
+            onclick="openTallyPerItemFromMatrix('${q.id}')">
+            <i class="fas fa-list-check"></i>
+          </button>
+        </div>
+      </th>
+    `).join("")}
+  `;
+
+  function renderGroup(label, list){
+    if (!list.length) return "";
+    const colspan = 1 + quizzes.length;
+    const groupHeader = `
+      <tr>
+        <td colspan="${colspan}" style="padding:10px 12px;background:#f1f5f9;color:#0f172a;font-weight:900;text-transform:uppercase;">
+          ${label} (${list.length})
+        </td>
+      </tr>`;
+
+    const groupRows = list.map(s => {
+      const displayName = stripNumberPrefix(s.last_name ? `${s.last_name}, ${s.full_name}` : (s.full_name || "Unknown"));
+      const cols = quizzes.map(q => {
+        const scanObj = (s.scans && s.scans[String(q.id)]) ? s.scans[String(q.id)] : null;
+        const score = safeScoreText(scanObj ? scanObj.score : null);
+        const scanId = scanObj ? scanObj.scan_id : null;
+        return `
+          <td style="padding:10px;text-align:center;">
+            ${hasValue(score) && hasValue(scanId) ? `
+              <span class="print-score" style="display:none;">${escapeHtml(score)}</span>
+              <button type="button" onclick="openScanViewer('${scanId}')" style="cursor:pointer;background:#eff6ff;color:#1d4ed8;border:1px solid #3b82f6;border-radius:8px;font-weight:900;padding:6px 12px;font-size:13px;">
+                ${escapeHtml(score)}
+              </button>` : ``}
+          </td>`;
+      }).join("");
+
+      return `<tr style="border-bottom:1px solid #f1f5f9;">
+                <td style="padding:12px;font-weight:800;background:white;position:sticky;left:0;z-index:1;">${escapeHtml(displayName)}</td>
+                ${cols}
+              </tr>`;
+    }).join("");
+    return groupHeader + groupRows;
+  }
+
+  const allStudents = (students || []).slice().sort(compareStudents);
+  const rowsHtml = renderGroup("Male", allStudents.filter(s => getGenderValue(s) === "Male")) +
+                   renderGroup("Female", allStudents.filter(s => getGenderValue(s) === "Female")) +
+                   renderGroup("Uncategorized", allStudents.filter(s => getGenderValue(s) === "Unknown"));
+
+  body.innerHTML = `
+    <div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:14px;">
+      <table id="matrixTableForExport" style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead><tr>${headerHtml}</tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>`;
+}
+
+function exportMatrixReportPDF() {
+    const subtitle = document.getElementById("matrixReportSubtitle")?.textContent || "Class_Report";
+    
+    // Create a temporary container for the PDF content to avoid capturing UI buttons
+    const element = document.createElement('div');
+    element.style.padding = '20px';
+    element.style.fontFamily = 'Arial, sans-serif';
+
+    // Build the Header for the PDF
+    let contentHtml = `
+        <h1 style="font-size: 18px; margin-bottom: 5px;">${subtitle}</h1>
+        <div style="color: #64748b; font-size: 11px; margin-bottom: 20px;">Generated on: ${new Date().toLocaleString()}</div>
+        <table style="width:100%; border-collapse: collapse; font-size: 10px;">
+            <thead>
+                <tr>
+                    <th style="border:1px solid #e5e7eb; padding:8px; text-align:left; background:#f8fafc;">Student</th>`;
+    
+    // Add columns for every quiz in your data
+    MATRIX_QUIZZES.forEach(q => {
+        contentHtml += `
+            <th style="border:1px solid #e5e7eb; padding:8px; text-align:center; background:#f8fafc;">
+                <div style="font-weight:bold;">${escapeHtml(q.quizName)}</div>
+                <div style="font-size:9px; color:#64748b;">Items: ${q.totalItems}</div>
+            </th>`;
+    });
+    contentHtml += `</tr></thead><tbody>`;
+
+    // Add Student Rows grouped by gender
+    const groups = ["Male", "Female", "Unknown"];
+    groups.forEach(genderGroup => {
+        const list = MATRIX_STUDENTS.filter(s => {
+            const g = (s.gender || s.sex || "").toString().trim().toLowerCase();
+            if (genderGroup === "Male") return g.startsWith("m");
+            if (genderGroup === "Female") return g.startsWith("f");
+            return !g.startsWith("m") && !g.startsWith("f");
+        }).sort(compareStudents);
+
+        if (list.length > 0) {
+            contentHtml += `
+                <tr>
+                    <td colspan="${1 + MATRIX_QUIZZES.length}" style="background:#f1f5f9; padding:8px; font-weight:bold; border:1px solid #e5e7eb;">
+                        ${genderGroup.toUpperCase()} (${list.length})
+                    </td>
+                </tr>`;
+
+            list.forEach(s => {
+                const displayName = s.last_name ? `${s.last_name}, ${s.full_name}` : s.full_name;
+                contentHtml += `<tr><td style="border:1px solid #e5e7eb; padding:8px; font-weight:bold;">${escapeHtml(displayName)}</td>`;
+                
+                MATRIX_QUIZZES.forEach(q => {
+                    const scanObj = (s.scans && s.scans[String(q.id)]) ? s.scans[String(q.id)] : null;
+                    contentHtml += `<td style="border:1px solid #e5e7eb; padding:8px; text-align:center;">${scanObj ? scanObj.score : ""}</td>`;
+                });
+                contentHtml += `</tr>`;
+            });
+        }
+    });
+
+    element.innerHTML = contentHtml + `</tbody></table>`;
+
+    // PDF Configuration for Direct Download
+    const opt = {
+        margin:       [10, 10],
+        filename:     `${subtitle.replace(/\s+/g, '_')}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
+    };
+
+    // Trigger the direct download
+    html2pdf().set(opt).from(element).save();
+}
+/**
+ * EXPORT EXCEL: Converts the visible Matrix Table to CSV
+ */
+function exportMatrixReportExcel(){
+  const table = document.getElementById("matrixTableForExport");
+  if (!table) return alert("No table found to export.");
+
+  let csv = [];
+  const rows = table.querySelectorAll("tr");
+  
+  for (let i = 0; i < rows.length; i++) {
+    let row = [];
+    const cols = rows[i].querySelectorAll("td, th");
+    for (let j = 0; j < cols.length; j++) {
+      // Clean text: removes extra newlines and escapes quotes
+      let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, " ").trim();
+      data = data.replace(/"/g, '""');
+      row.push('"' + data + '"');
+    }
+    csv.push(row.join(","));
+  }
+
+  const csvContent = csv.join("\n");
+  const filename = (document.getElementById("matrixReportSubtitle").innerText || "Class_Report") + ".csv";
+  downloadTextFile(csvContent, filename, "text/csv;charset=utf-8;");
+}
+
+/**
+ * EXPORT EXCEL (Tally Per Item): Scrapes the iframe content
+ */
+function exportTallyPerItemExcel(){
+  const frame = document.getElementById("tallyPerItemFrame");
+  if (!frame || !frame.contentWindow || !frame.contentDocument) return alert("Tally page not ready.");
+
+  const doc = frame.contentDocument;
+  const table = doc.querySelector("table");
+  if (!table) return alert("No data table found in Tally view.");
+
+  let csv = [];
+  const rows = table.querySelectorAll("tr");
+  rows.forEach(tr => {
+    let row = [];
+    tr.querySelectorAll("th, td").forEach(cell => {
+      let text = cell.innerText.replace(/(\r\n|\n|\r)/gm, " ").trim();
+      text = text.replace(/"/g, '""');
+      row.push('"' + text + '"');
+    });
+    csv.push(row.join(","));
+  });
+
+  const csvContent = csv.join("\n");
+  const filename = (document.getElementById("tallyPerItemSubtitle").innerText || "Tally_Report") + ".csv";
+  downloadTextFile(csvContent, filename, "text/csv;charset=utf-8;");
+}
+
+  const rowsHtml =
+    renderGroup("Male", maleStudents) +
+    renderGroup("Female", femaleStudents) +
+    renderGroup("Uncategorized  ", unknownStudents);
+
+  body.innerHTML = `
+    <div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:14px;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead><tr>${headerHtml}</tr></thead>
+        <tbody>
+          ${rowsHtml || `<tr><td colspan="${1 + quizzes.length}" style="padding:14px;color:#64748b;font-weight:800;">No students in this section.</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+
+function openTallyPerItem(answerKeyId){
+  const modal = document.getElementById("tallyPerItemModal");
+  const frame = document.getElementById("tallyPerItemFrame");
+  const sub   = document.getElementById("tallyPerItemSubtitle");
+
+  if (!modal || !frame || !sub) {
+    alert("Tally modal elements are missing. Check #tallyPerItemModal, #tallyPerItemFrame, #tallyPerItemSubtitle.");
+    return;
+  }
+
+  // subtitle
+  const q = (MATRIX_QUIZZES || []).find(x => String(x.id) === String(answerKeyId));
+  sub.innerText = q ? `Assessment: ${q.quizName}` : `Assessment ID: ${answerKeyId}`;
+
+  const gpId = "{{ selected_grading_period.id|default:'' }}";
+
+  let url = TALLY_URL_TEMPLATE.replace("/0/", `/${answerKeyId}/`);
+  if (gpId) url += `?gp=${encodeURIComponent(gpId)}`;
+
+  frame.src = url;
+  modal.classList.add("show");
+}
+
+
+function openTallyPerItemFromMatrix(answerKeyId){
+  if (answerKeyId){
+    openTallyPerItem(answerKeyId);
+    return;
+  }
+
+  if (!MATRIX_QUIZZES || !MATRIX_QUIZZES.length){
+    alert("No assessments found for this class.");
+    return;
+  }
+
+  openTallyPerItem(MATRIX_QUIZZES[0].id);
+}
+
+
+function closeTallyPerItem(){
+  const modal = document.getElementById("tallyPerItemModal");
+  const frame = document.getElementById("tallyPerItemFrame");
+  const sub   = document.getElementById("tallyPerItemSubtitle");
+
+  if (modal) modal.classList.remove("show");
+  if (frame) frame.src = "about:blank";
+  if (sub) sub.innerText = "";
+}
+
+function printTallyPerItem(){
+  const frame = document.getElementById("tallyPerItemFrame");
+  if (!frame || !frame.contentWindow){
+    alert("Tally page not ready yet.");
+    return;
+  }
+  frame.contentWindow.focus();
+  frame.contentWindow.print();
+}
+
+function printMatrixReport() {
+  const subtitle = document.getElementById("matrixReportSubtitle")?.textContent || "Class Report";
+  
+  // Build the complete table from data arrays to include all assessments and students
+  let tableHtml = `
+    <table style="width:100%; border-collapse: collapse; font-family: Arial, sans-serif; font-size: 12px;">
+      <thead>
+        <tr>
+          <th style="border:1px solid #e5e7eb; padding:8px; text-align:left; background:#f8fafc;">Student</th>`;
+  
+  // Add all Assessment columns
+  MATRIX_QUIZZES.forEach(q => {
+    tableHtml += `
+      <th style="border:1px solid #e5e7eb; padding:8px; text-align:center; background:#f8fafc;">
+        <div style="font-weight:bold;">${escapeHtml(q.quizName)}</div>
+        <div style="font-size:10px; color:#64748b;">Items: ${q.totalItems}</div>
+      </th>`;
+  });
+  
+  tableHtml += `</tr></thead><tbody>`;
+
+  // Define gender groups to maintain existing layout structure
+  const groups = [
+    { label: "MALE", filter: "Male" },
+    { label: "FEMALE", filter: "Female" },
+    { label: "UNCATEGORIZED", filter: "Unknown" }
+  ];
+
+  groups.forEach(group => {
+    const list = MATRIX_STUDENTS.filter(s => {
+      const g = (s.gender || s.sex || "").toString().trim().toLowerCase();
+      if (group.filter === "Male") return g.startsWith("m");
+      if (group.filter === "Female") return g.startsWith("f");
+      return !g.startsWith("m") && !g.startsWith("f");
+    }).sort(compareStudents);
+
+    if (list.length > 0) {
+      tableHtml += `
+        <tr>
+          <td colspan="${1 + MATRIX_QUIZZES.length}" style="background:#f1f5f9; padding:8px; font-weight:bold; border:1px solid #e5e7eb;">
+            ${group.label} (${list.length})
+          </td>
+        </tr>`;
+
+      list.forEach(s => {
+        const displayName = s.last_name ? `${s.last_name}, ${s.full_name}` : (s.full_name || "Unknown");
+        tableHtml += `<tr><td style="border:1px solid #e5e7eb; padding:8px; font-weight:bold;">${escapeHtml(displayName)}</td>`;
+        
+        MATRIX_QUIZZES.forEach(q => {
+          const scanObj = (s.scans && s.scans[String(q.id)]) ? s.scans[String(q.id)] : null;
+          const score = scanObj ? scanObj.score : "";
+          tableHtml += `<td style="border:1px solid #e5e7eb; padding:8px; text-align:center;">${escapeHtml(score)}</td>`;
+        });
+        tableHtml += `</tr>`;
+      });
+    }
+  });
+
+  tableHtml += `</tbody></table>`;
+
+  const w = window.open("", "_blank");
+  w.document.write(`
+    <html>
+      <head>
+        <title>${subtitle}</title>
+        <style>
+          body { padding: 20px; color: #0f172a; }
+          h1 { font-size: 18px; margin: 0 0 5px; }
+          .muted { color: #64748b; font-size: 11px; margin-bottom: 20px; }
+          @page { size: landscape; margin: 10mm; }
+        </style>
+      </head>
+      <body>
+        <h1>${subtitle}</h1>
+        <div class="muted">Printed on: ${new Date().toLocaleString()}</div>
+        ${tableHtml}
+      </body>
+    </html>
+  `);
+  w.document.close();
+  w.focus();
+  w.print();
+  w.close();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const form = document.getElementById("uploadForm");
+  if (!form) return;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    // keep scan section open while uploading/editing
+    sessionStorage.setItem(SCAN_SECTION_OPEN_KEY, "1");
+
+    const submitBtn = document.getElementById("submitBtn");
+    if (submitBtn) submitBtn.disabled = true;
+
+    try {
+      const formData = new FormData(form);
+
+      const res = await fetch(form.action, {
+        method: "POST",
+        body: formData,
+        headers: { "X-Requested-With": "XMLHttpRequest" }
+      });
+
+      const data = await res.json();
+
+      if (!data.ok) {
+        alert(data.error || "Upload failed.");
+        return;
+      }
+
+      // 1) Download PDF WITHOUT leaving the dashboard
+      if (data.download_url) {
+        window.open(data.download_url, "_blank");
+      }
+
+      // 2) Go to Answer Key Preview/Review page
+      // NOTE: When you come back from that page, Scan&Capture will still be OPEN (state saved).
+      if (data.review_url) {
+        window.location.href = data.review_url;
+        return;
+      }
+
+      alert("Uploaded, but review_url was not returned by the server.");
+      closeModal();
+      window.location.reload();
+
+    } catch (err) {
+      console.error(err);
+      alert("Error uploading answer key.");
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+  });
+});
+
+/**
+ * ✅ UPDATED: Export PDF (Automatic Download & Improved Page Breaking)
+ * Ensures long tables continue across multiple pages without being cut off.
+ */
+async function exportMatrixReportPDF() {
+    const subtitle = document.getElementById("matrixReportSubtitle")?.textContent || "Class_Report";
+    const element = document.createElement('div');
+    
+    // Internal styles to handle clean page breaking
+    element.style.padding = '0px'; 
+    element.style.margin = '0px';
+    element.style.fontFamily = 'Arial, sans-serif';
+
+    // Build the table using your format
+    // Added 'page-break-inside: auto' to the table and 'page-break-inside: avoid' to rows
+    let tableHtml = `
+        <style>
+            table { width: 100%; border-collapse: collapse; page-break-inside: auto; }
+            tr { page-break-inside: avoid; page-break-after: auto; }
+            thead { display: table-header-group; } /* Repeats header on every page */
+            th, td { border: 1px solid #e5e7eb; padding: 6px; font-size: 10px; }
+        </style>
+        <table>
+          <thead>
+            <tr>
+              <th style="text-align:left; background:#f8fafc;">Student</th>`;
+      
+    MATRIX_QUIZZES.forEach(q => {
+        tableHtml += `
+          <th style="text-align:center; background:#f8fafc;">
+            <div style="font-weight:bold;">${escapeHtml(q.quizName)}</div>
+            <div style="font-size:9px; color:#64748b;">Items: ${q.totalItems}</div>
+          </th>`;
+    });
+      
+    tableHtml += `</tr></thead><tbody>`;
+
+    const groups = [
+        { label: "MALE", filter: "Male" },
+        { label: "FEMALE", filter: "Female" },
+        { label: "UNCATEGORIZED", filter: "Unknown" }
+    ];
+
+    groups.forEach(group => {
+        const list = MATRIX_STUDENTS.filter(s => {
+            const g = (s.gender || s.sex || "").toString().trim().toLowerCase();
+            if (group.filter === "Male") return g.startsWith("m");
+            if (group.filter === "Female") return g.startsWith("f");
+            return !g.startsWith("m") && !g.startsWith("f");
+        }).sort(compareStudents);
+
+        if (list.length > 0) {
+            tableHtml += `
+                <tr style="background:#f1f5f9; font-weight:bold;">
+                  <td colspan="${1 + MATRIX_QUIZZES.length}">
+                    ${group.label} (${list.length})
+                  </td>
+                </tr>`;
+
+            list.forEach(s => {
+                const displayName = s.last_name ? `${s.last_name}, ${s.full_name}` : (s.full_name || "Unknown");
+                tableHtml += `<tr><td style="font-weight:bold;">${escapeHtml(displayName)}</td>`;
+                
+                MATRIX_QUIZZES.forEach(q => {
+                    const scanObj = (s.scans && s.scans[String(q.id)]) ? s.scans[String(q.id)] : null;
+                    const score = scanObj ? scanObj.score : "";
+                    tableHtml += `<td style="text-align:center;">${escapeHtml(score)}</td>`;
+                });
+                tableHtml += `</tr>`;
+            });
+        }
+    });
+
+    tableHtml += `</tbody></table>`;
+
+    element.innerHTML = `
+        <h1 style="font-size: 18px; margin: 0 0 5px 0; padding-top: 5px;">${subtitle}</h1>
+        <div style="color: #64748b; font-size: 10px; margin-bottom: 10px;">Generated on: ${new Date().toLocaleString()}</div>
+        ${tableHtml}
+    `;
+
+    const opt = {
+        margin:       [10, 5, 10, 5], // Increased margins slightly to avoid content hitting edge
+        filename:     `${subtitle.replace(/\s+/g, '_')}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true, scrollY: 0 },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' },
+        // ✅ CRITICAL: This mode determines how html2pdf splits the elements across pages
+        pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+    };
+
+    html2pdf().set(opt).from(element).save();
+}
+
+function exportMatrixReportExcel() {
+  if (!MATRIX_QUIZZES.length) return alert("No assessments found to export.");
+  const subtitle = (document.getElementById("matrixReportSubtitle")?.textContent || "Class_Report").replace(/[\\/:*?"<>|]/g, "-");
+
+  let excelHtml = `
+    <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+    <head>
+      <style>
+        table { border-collapse: collapse; }
+        th { background-color: #f8fafc; border: 0.5pt solid #e5e7eb; font-weight: bold; }
+        td { border: 0.5pt solid #e5e7eb; }
+        .xl-group { background-color: #f1f5f9; font-weight: bold; }
+      </style>
+    </head>
+    <body>
+      <table>
+        <thead><tr><th>Student</th>`;
+
+  MATRIX_QUIZZES.forEach(q => { excelHtml += `<th>${q.quizName} (Items: ${q.totalItems})</th>`; });
+  excelHtml += `</tr></thead><tbody>`;
+
+  // Grouping Logic for Excel
+  const groups = [
+      { label: "MALE", filter: "Male" },
+      { label: "FEMALE", filter: "Female" },
+      { label: "UNCATEGORIZED", filter: "Unknown" }
+  ];
+
+  groups.forEach(group => {
+    const list = MATRIX_STUDENTS.filter(s => {
+        const g = (s.gender || s.sex || "").toString().trim().toLowerCase();
+        if (group.filter === "Male") return g.startsWith("m");
+        if (group.filter === "Female") return g.startsWith("f");
+        return !g.startsWith("m") && !g.startsWith("f");
+    }).sort(compareStudents);
+
+    if (list.length > 0) {
+      // ✅ Insert the Gender Label Row into the Spreadsheet
+      excelHtml += `<tr class="xl-group"><td colspan="${1 + MATRIX_QUIZZES.length}">${group.label} (${list.length})</td></tr>`;
+      list.forEach(s => {
+        const displayName = s.last_name ? `${s.last_name}, ${s.full_name}` : (s.full_name || "Unknown");
+        excelHtml += `<tr><td>${displayName}</td>`;
+        MATRIX_QUIZZES.forEach(q => {
+          const scanObj = (s.scans && s.scans[String(q.id)]) ? s.scans[String(q.id)] : null;
+          excelHtml += `<td>${scanObj ? scanObj.score : ""}</td>`;
+        });
+        excelHtml += `</tr>`;
+      });
+    }
+  });
+
+  excelHtml += `</tbody></table></body></html>`;
+
+  const blob = new Blob([excelHtml], { type: 'application/vnd.ms-excel' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${subtitle}.xls`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+// ✅ helper downloader
+function downloadTextFile(content, filename, mimeType){
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function closeScanUIModalsOnly() {
+  const ids = [
+    "uploadModal",
+    "quickScanModal",
+    "scanViewerModal",
+    "scanZoomModal",
+    "matrixReportModal",
+    "tallyPerItemModal"
+  ];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove("show");
+  });
+
+  const scanBody = document.getElementById("scanViewerBody");
+  if (scanBody) scanBody.innerHTML = "";
+
+  const zoomImg = document.getElementById("scanZoomImg");
+  if (zoomImg) zoomImg.src = "";
+
+  const loading = document.getElementById("loadingOverlay");
+  if (loading) loading.style.display = "none";
+}
+
+// Only close modals when returning from scanning (not every activity)
+// AND keep Scan&Capture OPEN (and selected section open)
+window.addEventListener("pageshow", function (e) {
+  const cameFromScan = sessionStorage.getItem(DASH_FROM_SCAN_KEY) === "1";
+
+  if (e.persisted || cameFromScan) {
+    closeScanUIModalsOnly();
+
+    // restore scan section open state
+    if (sessionStorage.getItem(SCAN_SECTION_OPEN_KEY) === "1") {
+      showScanCaptureSection(true);
+    }
+
+    sessionStorage.removeItem(DASH_FROM_SCAN_KEY);
+  }
+});
+
+// ✅ ADDED: Export PDF for Tally Per Item (same behavior as print → Save as PDF)
+function exportTallyPerItemPDF(){
+  printTallyPerItem();
+}
+
+// ✅ ADDED: Export Excel for Tally Per Item (exports the table inside iframe as CSV)
+function exportTallyPerItemExcel(){
+  const frame = document.getElementById("tallyPerItemFrame");
+  if (!frame || !frame.contentWindow || !frame.contentDocument){
+    alert("Tally page not ready yet.");
+    return;
+  }
+
+  const doc = frame.contentDocument;
+  const table = doc.querySelector("table");
+  if (!table){
+    alert("No table found to export.");
+    return;
+  }
+
+  const rows = Array.from(table.querySelectorAll("tr"));
+  const csvLines = rows.map(tr => {
+    const cells = Array.from(tr.querySelectorAll("th,td")).map(td => {
+      let text = (td.innerText || "").trim();
+      text = text.replace(/"/g, '""');
+      return `"${text}"`;
+    });
+    return cells.join(",");
+  });
+
+  const csv = csvLines.join("\n");
+
+  // filename using subtitle (Assessment name)
+  const subtitle = (document.getElementById("tallyPerItemSubtitle")?.textContent || "Tally Per Item")
+    .replace(/[\\/:*?"<>|]/g, "-");
+
+  downloadTextFile(csv, `${subtitle}.csv`, "text/csv;charset=utf-8;");
+}
+
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    // Gagamit ng delegated event listener para iwas sa 'null' reading error
+    document.addEventListener("submit", async (e) => {
+        const form = e.target;
+
+        // Check kung ito ang upload form
+        if (form && form.id === "uploadForm") {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById("submitBtn");
+            const infoArea = document.getElementById("current_key_info");
+
+            // UI: Ipakita na nag-uupload na
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Detecting Items...';
+            }
+
+            try {
+                const formData = new FormData(form);
+                const response = await fetch(form.action, {
+                    method: "POST",
+                    body: formData,
+                    headers: { "X-Requested-With": "XMLHttpRequest" }
+                });
+
+                const data = await response.json();
+
+                if (data.ok) {
+                    // 1. Ipakita ang Result ng Detection
+                    if (infoArea) {
+                        infoArea.innerHTML = `
+                            <div style="background:#ecfdf5; color:#065f46; padding:15px; border-radius:12px; margin-top:10px; border: 2px solid #10b981; text-align:center;">
+                                <i class="fas fa-check-circle"></i> <strong>${data.total_items} Items Detected!</strong><br>
+                                <span style="font-size:12px;">Automatic download starting...</span>
+                            </div>
+                        `;
+                    }
+
+                    // 2. AUTOMATIC DOWNLOAD (Hidden Iframe Method)
+                    if (data.download_url) {
+                        let frame = document.getElementById("auto_download_frame");
+                        if (!frame) {
+                            frame = document.createElement("iframe");
+                            frame.id = "auto_download_frame";
+                            frame.style.display = "none";
+                            document.body.appendChild(frame);
+                        }
+                        frame.src = data.download_url;
+                    }
+
+                    // 3. AUTOMATIC REDIRECT pagkatapos ng 2.5 seconds
+                    if (data.review_url) {
+                        setTimeout(() => {
+                            window.location.href = data.review_url;
+                        }, 2500);
+                    }
+
+                } else {
+                    alert("Error: " + (data.error || "Upload failed"));
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<i class="fas fa-save"></i> Save Answer Key';
+                    }
+                }
+            } catch (err) {
+                console.error("Critical Error:", err);
+                alert("Connection lost. Please try again.");
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-save"></i> Save Answer Key';
+                }
+            }
+        }
+    });
+});
+</script>
+
+{% endblock %}

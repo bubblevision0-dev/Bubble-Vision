@@ -1,0 +1,12 @@
+{% extends 'analysis/base.html' %}
+{% load static %}
+
+{% block title %}Manage Sections | Item Analysis System{% endblock %}
+
+{% block content %}
+{% include 'analysis/partials/section_panel.html' %}
+
+<div class="back-link-wrapper" style="margin-top: 16px;">
+  <a href="{% url 'add_grade' %}" class="btn-cancel">← Back to Grades</a>
+</div>
+{% endblock %}

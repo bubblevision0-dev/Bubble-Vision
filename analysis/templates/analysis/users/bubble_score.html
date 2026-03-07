@@ -1,0 +1,57 @@
+{% extends 'analysis/users/base.html' %}
+{% load static %}
+
+{% block title %}Bubble Test Score{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/answer_key.css' %}">
+
+<div class="ak-review-page">
+
+  <div class="ak-review-header-card">
+    <div class="ak-review-main">
+      <h2>Bubble Test Result</h2>
+      <p class="ak-review-subtitle">
+        Scanned sheet and score for
+        {{ student_name|default:"this student" }}.
+      </p>
+
+      <div class="ak-chip-row">
+        <span class="ak-chip">Grade {{ grade.name }}</span>
+        <span class="ak-chip">Section {{ section.name }}</span>
+        <span class="ak-chip">{{ subject.name }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="bubble-sheet-preview" style="margin-top:16px;">
+    <div style="max-width: 960px; margin: 0 auto;">
+      <img src="{{ sheet_image_url }}"
+           alt="Scanned bubble sheet"
+           style="width:100%; border-radius:12px;
+                  box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+    </div>
+
+    {% if results %}
+      <!-- later: show detailed per-item results here -->
+      <div style="margin-top:16px;">
+        {{ results|safe }}
+      </div>
+    {% else %}
+      <p style="margin-top:16px; font-size:0.9rem; color:#666;">
+        Scoring logic will be added here (OMR pipeline).
+      </p>
+    {% endif %
+
+    <div style="margin-top:18px;">
+      <a href="javascript:history.back();"
+         class="btn btn-secondary">
+        ← Back to Bubble Result
+      </a>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+

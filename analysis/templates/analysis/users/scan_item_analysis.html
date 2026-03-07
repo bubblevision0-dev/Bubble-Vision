@@ -1,0 +1,94 @@
+{% extends 'analysis/users/base.html' %}
+{% load static %}
+
+{% block title %}Item Analysis · Scan{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/answer_key.css' %}">
+
+<div class="ak-review-page">
+
+  <div class="ak-review-header-card">
+    <div class="ak-review-main">
+      <h2>Item Analysis for Sheet: {{ filename }}</h2>
+      <p class="ak-review-subtitle">
+        Grade {{ grade.name }} – Section {{ section.name }} – {{ subject.name }}
+      </p>
+
+      <div class="ak-chip-row">
+        <span class="ak-chip">
+          Score: {{ stats.score_raw }}/{{ stats.total_items }}
+          ({{ stats.score_pct|floatformat:2 }}%)
+        </span>
+        <span class="ak-chip">Correct: {{ stats.correct }}</span>
+        <span class="ak-chip">Wrong: {{ stats.incorrect }}</span>
+        <span class="ak-chip">Blank: {{ stats.blank }}</span>
+        <span class="ak-chip">Invalid: {{ stats.invalid }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:20px;">
+    <h3>Per-Item Analysis</h3>
+    <p class="ak-review-subtitle">
+      This table shows every item on the test, the student's response, and a brief interpretation for that item.
+    </p>
+
+    <table class="table table-sm">
+      <thead>
+        <tr>
+          <th>Q#</th>
+          <th>Key</th>
+          <th>Student</th>
+          <th>Status</th>
+          <th>Points</th>
+          <th>Item Interpretation</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+          <tr
+            {% if item.status == 'correct' %}
+              class="student-correct"
+            {% elif item.status == 'incorrect' %}
+              class="student-wrong"
+            {% endif %}
+          >
+            <td>{{ item.number }}</td>
+            <td>{{ item.correct }}</td>
+
+            <td>
+              {% if item.status == 'blank' %}
+                  <span style="color: #999; font-style: italic;">Blank</span>
+              {% elif item.status == 'invalid' %}
+                  <span style="color: #d9534f; font-weight: bold;">Invalid</span>
+              {% else %}
+                  {{ item.student|default:"-" }}
+              {% endif %}
+          </td>
+
+          <td>
+              <span class="badge 
+                  {% if item.status == 'correct' %}bg-success
+                  {% elif item.status == 'incorrect' %}bg-danger
+                  {% else %}bg-secondary{% endif %}">
+                  {{ item.status|capfirst }}
+              </span>
+          </td>
+          <td>{{ item.points }}</td>
+          <td>{{ item.interpretation }}</td>
+      </tr>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div style="margin-top:20px;">
+    <a href="{% url 'scan_detail' answer_key.pk filename %}" style="text-decoration:none;font-size:14px;">
+      ← Back to scan detail
+    </a>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,175 @@
+{% extends "institution_admin/base.html" %}
+{% block title %}Super Admin Dashboard | BubbleVision{% endblock %}
+
+{% block content %}
+
+{% url 'add_institution' as add_institution_url %}
+{% url 'create_user' as create_user_url %}
+{% url 'assign_institution_admin' as assign_admin_url %}
+{% url 'super_admin_logout' as logout_url %}
+
+{% if messages %}
+  <div class="msg-wrap">
+      {% for message in messages %}
+    <div class="msg">{{ message }}</div>
+      {% endfor %}
+  </div>
+{% endif %}
+{% if error %}
+  <div class="msg-wrap">
+    <div class="msg msg-error">{{ error }}</div>
+    </div>
+{% endif %}
+
+<div class="page-header">
+  <div>
+    <h2>Welcome, Super Admin</h2>
+    <p class="subtitle">Manage institutions, admins, and teacher accounts.</p>
+  </div>
+</div>
+
+<!-- TOP: STAT CARDS -->
+<section class="dashboard-grid">
+
+  <div class="card stat-card">
+    <div class="icon-wrapper">
+      <i class="fas fa-school"></i>
+    </div>
+    <div class="label">Institutions</div>
+    <div class="value">{{ total_institutions|default:"0" }}</div>
+    <div class="subtext">Registered schools</div>
+  </div>
+
+  <div class="card stat-card">
+    <div class="icon-wrapper">
+      <i class="fas fa-user-shield"></i>
+    </div>
+    <div class="label">Institution Admins</div>
+    <div class="value">{{ total_institution_admins|default:"0" }}</div>
+    <div class="subtext">Assigned admins</div>
+  </div>
+
+  <div class="card stat-card">
+    <div class="icon-wrapper">
+      <i class="fas fa-user-cog"></i>
+    </div>
+    <div class="label">Admin Users</div>
+    <div class="value">{{ total_admin_users|default:"0" }}</div>
+    <div class="subtext">Accounts with admin access</div>
+  </div>
+
+  <div class="card stat-card">
+    <div class="icon-wrapper">
+      <i class="fas fa-chalkboard-teacher"></i>
+    </div>
+    <div class="label">Teacher Users</div>
+    <div class="value">{{ total_teacher_users|default:"0" }}</div>
+    <div class="subtext">Teacher accounts</div>
+  </div>
+
+</section>
+
+<!-- BOTTOM GRID -->
+<section class="bottom-grid">
+
+  <!-- Recent Activity -->
+  <div class="card recent-card">
+    <div class="card-header">
+      <h2>Recent Activity</h2>
+      <span class="tag">Last 7 days</span>
+    </div>
+
+    {% if recent_logs %}
+      <ul class="activity-list">
+        {% for log in recent_logs %}
+          <li>
+            <div class="activity-icon">
+              <i class="fas fa-circle-dot"></i>
+            </div>
+            <div class="activity-info">
+              <p class="activity-text">{{ log.message }}</p>
+              <span class="activity-meta">
+                {{ log.created_at|date:"M d, Y - h:i A" }}
+                &bullet;
+                {{ log.user.username }}
+              </span>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-state">No recent activity yet.</p>
+    {% endif %}
+  </div>
+
+<!-- Quick Actions -->
+<div class="card quick-card">
+  <div class="card-header">
+    <h2>Quick Actions</h2>
+    <span class="tag">Manage</span>
+  </div>
+
+  <div class="quick-actions">
+
+    <a href="{{ add_institution_url }}" class="quick-btn">
+      <i class="fas fa-school"></i>
+      <div>
+        <span class="title">Add Institution</span>
+        <span class="desc">Create a new institution profile.</span>
+      </div>
+    </a>
+
+
+
+    <a href="{{ create_admin_url }}" class="quick-btn">
+      <i class="fas fa-user-plus"></i>
+      <div>
+        <span class="title">Create Admin User</span>
+        <span class="desc">Create an account for an institution admin.</span>
+      </div>
+    </a>
+
+    <a href="{{ assign_admin_url }}" class="quick-btn">
+      <i class="fas fa-user-shield"></i>
+      <div>
+        <span class="title">Assign Admin to Institution</span>
+        <span class="desc">Link an admin user to an institution.</span>
+      </div>
+    </a>
+
+    {% if manage_admin_users_url %}
+    <a href="{{ manage_admin_users_url }}" class="quick-btn">
+      <i class="fas fa-users-cog"></i>
+      <div>
+        <span class="title">Manage Admin Users</span>
+        <span class="desc">View/edit admin accounts.</span>
+      </div>
+    </a>
+    {% endif %}
+
+    {% if manage_teacher_users_url %}
+    <a href="{{ manage_teacher_users_url }}" class="quick-btn">
+      <i class="fas fa-users"></i>
+      <div>
+        <span class="title">Manage Teacher Users</span>
+        <span class="desc">View/edit teacher accounts.</span>
+      </div>
+    </a>
+    {% endif %}
+
+
+    <a href="{{ logout_url }}" class="quick-btn">
+      <i class="fas fa-sign-out-alt"></i>
+      <div>
+        <span class="title">Logout</span>
+        <span class="desc">Exit Super Admin session securely.</span>
+      </div>
+    </a>
+
+  </div>
+</div>
+
+
+</section>
+
+{% endblock %}

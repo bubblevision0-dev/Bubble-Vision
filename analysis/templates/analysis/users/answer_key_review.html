@@ -1,0 +1,450 @@
+{% extends 'analysis/users/base.html' %}
+{% load static %}
+
+{% block title %}Answer Key Preview | Item Analysis{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/answer_key.css' %}">
+
+<style>
+    :root {
+        --primary-blue: #2563eb;
+        --secondary-indigo: #6366f1;
+        --surface-bg: #f8fafc;
+        --border-color: #e2e8f0;
+        --text-main: #1e293b;
+        --text-muted: #64748b;
+    }
+
+    /* 1. Main Review Modal Layout */
+    .review-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.75);
+        backdrop-filter: blur(12px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        padding: 24px;
+    }
+
+    .review-modal-container {
+        background: var(--surface-bg);
+        width: 100%;
+        max-width: 1100px;
+        height: 90vh;
+        border-radius: 24px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        position: relative;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Fixed Header */
+    .ak-review-header-card {
+        padding: 24px 32px;
+        background: white;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-shrink: 0;
+    }
+
+    /* Scrollable Content Area */
+    .ak-scroll-content {
+        flex-grow: 1;
+        overflow-y: auto;
+        padding: 32px;
+    }
+
+    .close-review-modal {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: #fff;
+        border: 1px solid var(--border-color);
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        color: var(--text-muted);
+        z-index: 1020;
+    }
+
+    .close-review-modal:hover { 
+        background: #fee2e2; 
+        color: #ef4444; 
+        transform: rotate(90deg); 
+    }
+
+    /* Action Buttons UI */
+    .action-group {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    .btn-action {
+        padding: 10px 18px;
+        border-radius: 10px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s;
+        cursor: pointer;
+        border: none;
+    }
+
+    .btn-primary { background: var(--primary-blue); color: white; }
+    .btn-primary:hover { background: #1d4ed8; transform: translateY(-1px); }
+
+    .btn-secondary { background: white; border: 1px solid var(--border-color); color: var(--text-main); }
+    .btn-secondary:hover { background: var(--surface-bg); border-color: #cbd5e1; }
+
+    .btn-student { background: #f5f3ff; color: var(--secondary-indigo); border: 1px solid #ddd6fe; }
+    .btn-student:hover { background: #ede9fe; }
+
+    /* Bubble Sheet Grid */
+    .two-column-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
+        gap: 20px 40px;
+    }
+
+    .bubble-row {
+        display: flex;
+        align-items: center;
+        padding: 10px 16px;
+        background: white;
+        border-radius: 12px;
+        border: 1px solid var(--border-color);
+    }
+
+    /* Sticky Save Bar */
+    .points-footer {
+        padding: 20px 32px;
+        background: white;
+        border-top: 2px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    /* Scan Modal & Animations */
+    .scan-instruction-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.8);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1800;
+        padding: 20px;
+    }
+    .scan-instruction-modal-overlay.show { display: flex; }
+    .scan-instruction-modal {
+        max-width: 800px; width: 100%; border-radius: 24px; background: #fff; padding: 40px;
+        display: grid; grid-template-columns: 1.2fr 1fr; gap: 32px;
+    }
+    .scan-animation-wrapper { background: #f1f5f9; border-radius: 20px; height: 250px; display: flex; align-items: center; justify-content: center; position: relative; }
+    .scan-paper-sheet { width: 120px; height: 160px; background: white; border: 1px solid #cbd5e1; border-radius: 4px; animation: scanPaperFlattenSequence 4s infinite ease-in-out; }
+    .scan-phone-outline { width: 70px; height: 140px; border: 4px solid #1e293b; border-radius: 12px; position: absolute; z-index: 2; background: rgba(59, 130, 246, 0.1); animation: scanPhoneRotatePortrait 4s infinite ease-in-out; }
+
+    /* STUDENT MODAL SPECIFIC STYLES */
+    .student-modal-overlay {
+        position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6);
+        display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px;
+    }
+    .student-modal-overlay.is-open { display: flex; }
+    .student-modal-container {
+        background: white; width: 100%; max-width: 550px; border-radius: 20px;
+        box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); overflow: hidden;
+    }
+    .student-modal-header {
+        padding: 20px 24px; border-bottom: 1px solid var(--border-color);
+        display: flex; justify-content: space-between; align-items: center;
+    }
+    .student-modal {
+    display: none; /* Hidden by default */
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.student-modal.is-open {
+    display: flex; /* Shown when active */
+}
+    .student-search-bar {
+        padding: 12px 24px; background: #f1f5f9;
+    }
+    #studentSearchInput {
+        width: 100%; padding: 8px 16px; border-radius: 10px; border: 1px solid var(--border-color);
+    }
+    .student-list-body { max-height: 400px; overflow-y: auto; padding: 12px 24px; }
+    .student-item {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 12px; border-bottom: 1px solid #f1f5f9;
+    }
+    .student-name { font-weight: 500; color: var(--text-main); }
+    .btn-edit-student { color: var(--primary-blue); text-decoration: none; font-size: 0.8rem; }
+
+    @keyframes scanPaperFlattenSequence { 0%, 100% { transform: scale(0.9) rotate(-10deg); } 50% { transform: scale(1) rotate(0deg); } }
+    @keyframes scanPhoneRotatePortrait { 0%, 100% { transform: translate(-20px, 10px) rotate(15deg); opacity: 0.5; } 50% { transform: translate(0, 0) rotate(0deg); opacity: 1; } }
+</style>
+
+<div class="review-modal-overlay" id="mainReviewModal">
+    <div class="review-modal-container">
+        <a href="{% url 'user_dashboard' %}" class="close-review-modal">
+            <i class="fas fa-times"></i>
+        </a>
+
+        <header class="ak-review-header-card">
+            <div class="ak-review-main">
+                <h2 style="margin:0 0 4px 0; font-size: 1.4rem; color: var(--text-main);">Answer Key Setup</h2>
+                <div class="ak-chip-row" style="display:flex; gap:8px; margin-bottom: 8px;">
+                    <span class="ak-chip" style="background:#e2e8f0; padding:3px 10px; border-radius:20px; font-size:0.75rem;">G{{ answer_key.grade.name }}</span>
+                    <span class="ak-chip" style="background:#e2e8f0; padding:3px 10px; border-radius:20px; font-size:0.75rem;">{{ answer_key.section.name }}</span>
+                    <span class="ak-chip" style="background:#dbeafe; color:#1e40af; padding:3px 10px; border-radius:20px; font-size:0.75rem;">{{ answer_key.subject.name }}</span>
+                </div>
+                <a href="{% url 'download_bubble_sheets_section' answer_key.section.id %}" style="text-decoration:none; color: var(--primary-blue); font-size:0.85rem; font-weight:600;">
+                    <i class="fas fa-file-pdf"></i> Download PDF Sheets
+                </a>
+            </div>
+
+            <div class="ak-review-right">
+                <div style="display:flex; gap:15px; justify-content:flex-end; margin-bottom:12px; font-size: 0.8rem;">
+                    <div><span style="color:var(--text-muted)">ITEMS:</span> <strong>{{ items|length }}</strong></div>
+                    <div><span style="color:var(--text-muted)">POINTS:</span> <strong id="totalPointsDisplay" style="color:var(--primary-blue)">{{ answer_key.total_points }}</strong></div>
+                </div>
+
+            </div>
+        </header>
+
+        <div class="ak-scroll-content">
+            <div class="ak-legend" style="margin-bottom: 20px; display: flex; gap: 15px; font-size: 0.8rem; color: var(--text-muted);">
+                <span><i class="fas fa-circle" style="color:#22c55e;"></i> Correct Key</span>
+                <span><i class="far fa-circle"></i> Option</span>
+            </div>
+
+            <form method="post" id="akForm">
+                {% csrf_token %}
+                <div class="two-column-container">
+                    {% for item in items %}
+                    <div class="bubble-row">
+                        <span style="font-weight:700; width:30px;">{{ item.number }}.</span>
+                        <div class="bubble-options" style="flex-grow:1; display:flex; gap:6px;">
+                            {% for option in "ABCDE"|make_list %}
+                            <span class="bubble {% if option == item.correct %}correct-answer{% endif %}" 
+                                  data-item="{{ item.number }}" 
+                                  data-option="{{ option }}">
+                                {{ option }}
+                            </span>
+                            {% endfor %}
+                        </div>
+                        <input type="hidden" name="ans_{{ item.number }}" id="ans_{{ item.number }}" value="{{ item.correct }}">
+                        <div style="display:flex; align-items:center; gap:5px; border-left:1px solid #eee; padding-left:12px; margin-left:10px;">
+                            <span style="font-size:0.65rem; color:var(--text-muted);">PTS</span>
+                            <input type="number" class="points-input" name="points_{{ item.number }}" 
+                                   min="0" step="0.5" value="{{ item.points|default:'1' }}"
+                                   style="width:45px; border:1px solid var(--border-color); border-radius:4px; padding:2px;">
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <input type="hidden" name="total_points" id="totalPointsInput" value="{{ answer_key.total_points }}">
+            </form>
+        </div>
+
+        <div class="points-footer" id="akSaveBar" style="display:none;">
+            <div style="font-weight:600;">
+                New Total: <span id="totalPointsDisplayFooter" style="color:var(--primary-blue); font-size:1.1rem; margin-left:5px;">{{ answer_key.total_points }}</span>
+            </div>
+            <button type="submit" form="akForm" class="btn-primary" style="border:none; padding:12px 30px; border-radius:12px; font-weight:700; cursor:pointer;">
+                <i class="fas fa-save"></i> Save Changes
+            </button>
+        </div>
+    </div>
+</div>
+
+{# === SCAN INSTRUCTION MODAL === #}
+<div class="scan-instruction-modal-overlay" id="scanInstructionModal">
+    <div class="scan-instruction-modal">
+        <div class="scan-instruction-main">
+            <h3>Scanning Tips</h3>
+            <p style="color:var(--text-muted); margin-bottom: 20px;">For the best results:</p>
+            <ul style="padding:0; list-style:none; line-height: 2;">
+                <li><i class="fas fa-check-circle" style="color:#22c55e;"></i> Use a <strong>flat, dark background</strong>.</li>
+                <li><i class="fas fa-check-circle" style="color:#22c55e;"></i> Avoid <strong>glare and shadows</strong>.</li>
+                <li><i class="fas fa-check-circle" style="color:#22c55e;"></i> Hold phone <strong>level</strong> with the paper.</li>
+            </ul>
+            <div style="margin-top:30px; display:flex; gap:10px;">
+                <button class="btn-action btn-primary" id="scanInstrReady" style="flex-grow:1; justify-content:center;">Ready to Scan</button>
+                <button class="btn-action btn-secondary" id="scanInstrClose">Cancel</button>
+            </div>
+        </div>
+        <div class="scan-animation-wrapper">
+            <div class="scan-paper-sheet"></div>
+            <div class="scan-phone-outline"></div>
+        </div>
+    </div>
+</div>
+<div class="student-modal" id="studentsModal">
+    <div class="student-modal-dialog">
+        <div class="student-modal-inner">
+            <div class="student-modal-header">
+                <div>
+                    <div class="student-modal-title">Section Students</div>
+                    <div class="student-modal-subtitle">View and Manage Students for {{ answer_key.section.name }}</div>
+                </div>
+                <div class="student-modal-search">
+                    <input type="text" id="studentSearchInput" placeholder="Search student...">
+                </div>
+                <button type="button" class="student-modal-close" id="btnCloseModal">&times;</button>
+            </div>
+
+            <div class="student-modal-body">
+                <ul class="modal-student-list" id="modalStudentList">
+                    {% for student in section_students %}
+                    <li class="modal-student-row">
+                        <span class="modal-student-name">
+                            {% if student.last_name %}
+                                {{ student.last_name }}, {{ student.full_name }} {% if student.middle_initial %}{{ student.middle_initial }}.{% endif %}
+                            {% else %}
+                                {{ student.full_name }}
+                            {% endif %}
+                        </span>
+                        <span class="modal-student-actions">
+                            <a href="{% url 'students_view' %}?edit={{ student.id }}" class="btn-icon btn-edit" title="Edit in Management">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                        </span>
+                    </li>
+                    {% empty %}
+                    <li class="no-students-text">No students found in this section.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const inputs = document.querySelectorAll('.points-input');
+    const headerSpan = document.getElementById('totalPointsDisplay');
+    const footerSpan = document.getElementById('totalPointsDisplayFooter');
+    const saveBar = document.getElementById('akSaveBar');
+    const bubbles = document.querySelectorAll('.bubble-options .bubble');
+
+    function markDirty() { saveBar.style.display = 'flex'; }
+
+    function recalcTotal() {
+        let total = 0;
+        inputs.forEach(inp => {
+            const val = parseFloat(inp.value);
+            if (!isNaN(val)) total += val;
+        });
+        const formatted = total.toFixed(2).replace(/\.00$/, '');
+        headerSpan.textContent = formatted;
+        footerSpan.textContent = formatted;
+        document.getElementById('totalPointsInput').value = total;
+    }
+
+    inputs.forEach(inp => inp.addEventListener('input', () => { recalcTotal(); markDirty(); }));
+
+    bubbles.forEach(bubble => {
+        bubble.addEventListener('click', () => {
+            const itemNo = bubble.dataset.item;
+            const option = bubble.dataset.option;
+            document.getElementById(`ans_${itemNo}`).value = option;
+            bubble.closest('.bubble-options').querySelectorAll('.bubble').forEach(b => b.classList.remove('correct-answer'));
+            bubble.classList.add('correct-answer');
+            markDirty();
+        });
+    });
+
+    // Scan Instruction Logic
+    const openScanLink = document.getElementById('btnOpenScanInstruction');
+    const scanModal = document.getElementById('scanInstructionModal');
+    
+    openScanLink.addEventListener('click', (e) => { e.preventDefault(); scanModal.classList.add('show'); });
+    document.getElementById('scanInstrClose').addEventListener('click', () => scanModal.classList.remove('show'));
+    document.getElementById('scanInstrReady').addEventListener('click', () => {
+        window.location.href = "{% url 'scan_document' answer_key.pk %}";
+    });
+
+    // Student Modal Logic
+    const studentModal = document.getElementById('studentsModal');
+    const btnOpenStudent = document.getElementById('btnOpenStudentModal');
+    const btnCloseStudent = document.getElementById('btnCloseStudentModal');
+    const studentSearch = document.getElementById('studentSearchInput');
+
+    btnOpenStudent.addEventListener('click', () => studentModal.classList.add('is-open'));
+    btnCloseStudent.addEventListener('click', () => studentModal.classList.remove('is-open'));
+
+    // Search filter for student list
+    studentSearch.addEventListener('input', function() {
+        const filter = this.value.toLowerCase();
+        const items = document.querySelectorAll('.student-item');
+        items.forEach(item => {
+            const text = item.querySelector('.student-name').textContent.toLowerCase();
+            item.style.display = text.includes(filter) ? 'flex' : 'none';
+        });
+    });
+})();
+
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('studentsModal');
+    const btnOpen = document.getElementById('btnOpenStudentModal');
+    const btnClose = document.getElementById('btnCloseModal');
+    const searchInput = document.getElementById('studentSearchInput');
+
+    // Open Modal
+    if (btnOpen) {
+        btnOpen.addEventListener('click', () => {
+            modal.classList.add('is-open');
+        });
+    }
+
+    // Close Modal
+    if (btnClose) {
+        btnClose.addEventListener('click', () => {
+            modal.classList.remove('is-open');
+        });
+    }
+
+    // Close on Outside Click
+    window.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.classList.remove('is-open');
+        }
+    });
+
+    // Search Logic
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const term = this.value.toLowerCase();
+            const rows = document.querySelectorAll('.modal-student-row');
+            
+            rows.forEach(row => {
+                const name = row.querySelector('.modal-student-name').textContent.toLowerCase();
+                row.style.display = name.includes(term) ? 'flex' : 'none';
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

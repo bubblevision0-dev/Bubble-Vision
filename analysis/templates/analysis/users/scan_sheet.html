@@ -1,0 +1,23 @@
+{% extends "analysis/users/base.html" %}
+{% block title %}Scan Bubble Sheet{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>Scan Bubble Test Sheet</h2>
+  <p>
+    Upload a clear photo of the student's bubble sheet for:
+    <strong>{{ answer_key.grade.name }}</strong> -
+    <strong>{{ answer_key.section.name }}</strong> -
+    <strong>{{ answer_key.subject.name }}</strong>.
+  </p>
+
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="mb-3">
+      <label>Select sheet image:</label>
+      <input type="file" name="sheet_image" accept="image/*" required class="form-control">
+    </div>
+    <button type="submit" class="btn btn-primary">Scan & Grade</button>
+  </form>
+</div>
+{% endblock %}

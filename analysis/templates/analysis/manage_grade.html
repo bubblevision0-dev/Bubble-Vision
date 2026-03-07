@@ -1,0 +1,20 @@
+{% extends 'analysis/base.html' %}
+{% load static %}
+{% block content %}
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="{% static 'css/grade.css' %}">
+
+<div class="grade-container">
+  <h2>Grade {{ grade.name }}</h2>
+
+  <div class="manage-options">
+    <a href="{% url 'add_section' grade.id %}" class="btn-option">Section</a>
+    <a href="{% url 'add_subject' grade.id %}" class="btn-option">Subjects</a>
+  </div>
+
+  <div class="back-link">
+    <a href="{% url 'add_grade' %}">&larr; Back to Grades</a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,19 @@
+{% extends 'analysis/base.html' %}
+{% load static %}
+
+{% block content %}
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="{% static 'css/subject.css' %}">
+
+<div class="subject-container">
+  <h2>Delete Subject</h2>
+  <p>Are you sure you want to delete <strong>{{ subject.name }}</strong> from <strong>{{ grade.name }}</strong>?</p>
+
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn-delete">Yes, Delete</button>
+    <a href="{% url 'add_subject' grade.id %}" class="btn-cancel">Cancel</a>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,33 @@
+/* User dashboard tweaks on top of global + admin styles */
+
+.user-dashboard-grid {
+    margin-top: 10px;
+}
+
+/* Make the icons a bit more “teacher/usage” themed */
+.user-dashboard-grid .stat-card:nth-child(1) .icon-wrapper {
+    background: rgba(59, 130, 246, 0.12);
+}
+.user-dashboard-grid .stat-card:nth-child(1) .icon-wrapper i {
+    color: #2563eb;
+}
+
+.user-dashboard-grid .stat-card:nth-child(2) .icon-wrapper {
+    background: rgba(16, 185, 129, 0.12);
+}
+.user-dashboard-grid .stat-card:nth-child(2) .icon-wrapper i {
+    color: #059669;
+}
+
+.user-dashboard-grid .stat-card:nth-child(3) .icon-wrapper {
+    background: rgba(234, 179, 8, 0.12);
+}
+.user-dashboard-grid .stat-card:nth-child(3) .icon-wrapper i {
+    color: #ca8a04;
+}
+
+/* Optional: slightly different hover to distinguish from admin */
+.user-dashboard-grid .stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 16px 36px rgba(15, 23, 42, 0.18);
+}

@@ -1,0 +1,60 @@
+{% extends 'analysis/users/base.html' %}
+{% load static %}
+
+{% block title %}Revise Difficult Items | BubbleVision{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/answer_key.css' %}">
+
+<div class="ak-review-page">
+
+  <!-- HEADER -->
+  <h2>Revise Item Difficulty</h2>
+
+<form id="reviseForm">
+    {% csrf_token %}
+    {% for item in items %}
+        <div>
+            <label for="item_{{ item.id }}">Item #{{ item.number }} (Current Difficulty: {{ item.difficulty_tag }})</label>
+            <select name="difficulty_tag_{{ item.id }}" id="item_{{ item.id }}">
+                <option value="Difficult" {% if item.difficulty_tag == 'Difficult' %}selected{% endif %}>Difficult</option>
+                <option value="Moderate" {% if item.difficulty_tag == 'Moderate' %}selected{% endif %}>Moderate</option>
+                <option value="Easy" {% if item.difficulty_tag == 'Easy' %}selected{% endif %}>Easy</option>
+            </select>
+        </div>
+    {% endfor %}
+
+    <button type="button" onclick="reviseItemDifficulty()">Save Revisions</button>
+</form>
+
+<script>
+async function reviseItemDifficulty() {
+    const items = [];
+    const formData = new FormData(document.getElementById('reviseForm'));
+
+    for (const [key, value] of formData.entries()) {
+        const itemId = key.split('_')[1]; // Get item ID from the form key
+        items.push({
+            id: itemId,
+            difficulty_tag: value
+        });
+    }
+
+    const response = await fetch(`/api/revise_item_difficulty/{{ answer_key.id }}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}',
+        },
+        body: JSON.stringify({ items: items })
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+        alert('Items updated successfully!');
+    } else {
+        alert('Error: ' + data.error);
+    }
+}
+</script>

@@ -1,0 +1,386 @@
+{% extends 'analysis/base.html' %}
+{% load static %}
+{% block content %}
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="{% static 'css/grade.css' %}">
+<!-- Font Awesome CDN -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<div class="grade-dashboard">
+  
+  <!-- Add Grade Form -->
+  <div class="grade-form-panel">
+    <h2>Add Grade</h2>
+    <form method="post" class="grade-form">
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+        <div class="alert alert-error">
+          {% for error in form.non_field_errors %}
+            <p>{{ error }}</p>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <div class="form-group">
+        {{ form.name.label_tag }}
+        {{ form.name }}
+        {% for error in form.name.errors %}
+          <div class="error-text">{{ error }}</div>
+        {% endfor %}
+      </div>
+
+      <button type="submit" class="btn-submit">Add Grade</button>
+    </form>
+  </div>
+
+  <!-- Existing Grades -->
+  <div class="grades-panel">
+    <h2>Existing Grades</h2>
+    {% if grades %}
+    <div class="grades-grid">
+      {% for grade in grades %}
+      <div class="grade-card">
+        <div class="grade-name"><button class="btn-grade open-grade-modal" 
+                data-grade-id="{{ grade.id }}" 
+                data-grade-name="{{ grade.name }}">
+          {{ grade.name }}
+        </button>
+        </div>
+        
+        <div class="grade-actions">
+          <a href="{% url 'edit_grade' grade.id %}" class="btn-icon btn-edit" title="Edit">
+            <i class="fas fa-edit"></i>
+          </a>
+          <form action="{% url 'delete_grade' grade.id %}" method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn-icon btn-delete" title="Delete">
+              <i class="fas fa-trash"></i>
+            </button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+
+      <!-- Fill empty spaces to occupy the row -->
+      {% for i in "123456789"|slice:":{{ 6-grades|length%6 }}" %}
+      <div class="grade-card empty-card"></div>
+      {% endfor %}
+
+    </div>
+    {% else %}
+      <p class="no-grades-text">No grades added yet.</p>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- Grade Modal -->
+<div id="gradeModal" class="modal">
+  <div class="modal-content">
+    <span class="close-modal">&times;</span>
+
+    <h2 id="modalGradeTitle">Grade</h2>
+
+    <div class="manage-options">
+      <a id="modalSectionBtn" class="btn-option">Section</a>
+      <a id="modalSubjectBtn" class="btn-option">Subjects</a>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    
+    const modal = document.getElementById("gradeModal");
+    const closeModal = document.querySelector(".close-modal");
+
+    const gradeButtons = document.querySelectorAll(".open-grade-modal");
+
+    gradeButtons.forEach(btn => {
+        btn.addEventListener("click", function() {
+            const gradeId = this.dataset.gradeId;
+            const gradeName = this.dataset.gradeName;
+
+            // Set modal title
+            document.getElementById("modalGradeTitle").innerText = "Grade " + gradeName;
+
+            // Update modal links
+            document.getElementById("modalSectionBtn").href = `/add-section/${gradeId}/`;
+            document.getElementById("modalSubjectBtn").href = `/add-subject/${gradeId}/`;
+
+            // Show modal
+            modal.style.display = "block";
+        });
+    });
+
+    closeModal.onclick = () => modal.style.display = "none";
+
+    window.onclick = function(e) {
+        if (e.target === modal) modal.style.display = "none";
+    };
+});
+</script>
+
+{% endblock %}
+
+/* -----------------------
+   GLOBAL RESET
+------------------------ */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Poppins', sans-serif;
+}
+
+body {
+    background: #f0f4f8;
+    color: #333;
+}
+
+/* -----------------------
+   DASHBOARD CONTAINER
+------------------------ */
+.grade-dashboard {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 30px;
+    padding: 100px 30px 30px 30px; /* space for fixed navbar */
+    justify-content: flex-start;
+}
+
+/* -----------------------
+   FORM PANEL
+------------------------ */
+.grade-form-panel {
+    flex: 1 1 300px;
+    background: #fff;
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.grade-form-panel:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+}
+
+.grade-form-panel h2 {
+    font-size: 20px;
+    margin-bottom: 15px;
+    color: #1a73e8;
+}
+
+.grade-form .form-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 15px;
+}
+
+.grade-form label {
+    margin-bottom: 6px;
+    font-weight: 500;
+}
+
+.grade-form input[type="text"],
+.grade-form select {
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    outline: none;
+    transition: 0.3s;
+}
+
+.grade-form input[type="text"]:focus,
+.grade-form select:focus {
+    border-color: #1a73e8;
+    box-shadow: 0 0 6px rgba(26, 115, 232, 0.3);
+}
+
+.btn-submit {
+    background: #1a73e8;
+    color: #fff;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: 0.3s;
+}
+
+.btn-submit:hover {
+    background: #155ab6;
+}
+
+/* -----------------------
+   ALERT & ERROR
+------------------------ */
+.alert-error {
+    background: #f8d7da;
+    color: #842029;
+    padding: 10px 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.error-text {
+    color: #d9534f;
+    font-size: 13px;
+    margin-top: 4px;
+}
+
+/* -----------------------
+   GRADES PANEL
+------------------------ */
+.grades-panel {
+    flex: 2 1 600px;
+    background: #fff;
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+}
+
+.grades-panel h2 {
+    font-size: 20px;
+    margin-bottom: 15px;
+    color: #1a73e8;
+}
+
+.grades-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 15px;
+}
+
+.grade-card {
+    background: #f9f9f9;
+    border-radius: 12px;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.grade-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+}
+
+.grade-name {
+    font-weight: 600;
+    font-size: 16px;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.grade-actions {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+
+.btn-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: 0.3s;
+    font-size: 16px;
+    color: #fff;
+}
+
+.btn-edit { background: #28a745; }
+.btn-edit:hover { background: #218838; }
+
+.btn-delete { background: #dc3545; }
+.btn-delete:hover { background: #c82333; }
+
+.empty-card {
+    background: transparent;
+    box-shadow: none;
+}
+
+/* -----------------------
+   NO GRADES TEXT
+------------------------ */
+.no-grades-text {
+    text-align: center;
+    color: #777;
+    font-style: italic;
+    margin-top: 20px;
+}
+
+/* -----------------------
+   RESPONSIVE
+------------------------ */
+@media (max-width: 900px) {
+    .grade-dashboard {
+        flex-direction: column;
+        padding: 120px 15px 15px 15px;
+    }
+    .grades-panel {
+        margin-top: 20px;
+    }
+}
+
+/* Modal Background */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 9999;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(3px);
+}
+
+/* Modal Box */
+.modal-content {
+  background: #fff;
+  margin: 10% auto;
+  padding: 25px;
+  width: 400px;
+  border-radius: 12px;
+  text-align: center;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Close Button */
+.close-modal {
+  float: right;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+/* Options */
+.manage-options {
+  margin-top: 20px;
+}
+.manage-options .btn-option {
+  display: block;
+  margin: 10px auto;
+  padding: 10px 15px;
+  background: #2c84ff;
+  color: white;
+  border-radius: 8px;
+  text-decoration: none;
+  width: 70%;
+}
+
+/* Animation */
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+

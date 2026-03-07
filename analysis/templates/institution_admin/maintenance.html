@@ -1,0 +1,37 @@
+{% extends "analysis/base.html" %}
+{% block content %}
+<div class="container" style="padding: 30px; max-width: 1000px; margin: auto;">
+    <h1 style="color: #1e293b; margin-bottom: 5px;">System Maintenance</h1>
+    <p style="color: #64748b; margin-bottom: 30px;">Manage backups, data integrity, and system resets.</p>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        
+        <div style="background: white; padding: 25px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+            <div style="color: #2563eb; font-size: 2rem; margin-bottom: 15px;"><i class="fas fa-file-archive"></i></div>
+            <h3 style="margin-top: 0;">System Backup</h3>
+            <p style="color: #64748b; font-size: 0.9rem;">Download a complete ZIP file containing your database records and all scanned exam images.</p>
+            <a href="{% url 'system_backup' %}" class="btn" style="display: inline-block; background: #2563eb; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: bold;">
+                <i class="fas fa-download"></i> Generate Backup
+            </a>
+        </div>
+
+        <div style="background: white; padding: 25px; border-radius: 12px; border: 1px solid #fee2e2; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+            <div style="color: #dc2626; font-size: 2rem; margin-bottom: 15px;"><i class="fas fa-exclamation-triangle"></i></div>
+            <h3 style="margin-top: 0; color: #991b1b;">Data Reset</h3>
+            <p style="color: #64748b; font-size: 0.9rem;">Permanently delete all Scan Results and Student Records. This action cannot be undone.</p>
+            <a href="{% url 'reset_confirm' %}" class="btn" style="display: inline-block; background: #dc2626; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: bold;">
+                <i class="fas fa-trash-alt"></i> Reset Portal
+            </a>
+        </div>
+
+    </div>
+
+    <div style="margin-top: 40px; background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
+        <h4 style="margin-top: 0;"><i class="fas fa-info-circle"></i> System Stats</h4>
+        <ul style="list-style: none; padding: 0; color: #475569;">
+            <li>Total Records in Database: <strong>{{ total_scans }}</strong></li>
+            <li>Registered Users: <strong>{{ total_users }}</strong></li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

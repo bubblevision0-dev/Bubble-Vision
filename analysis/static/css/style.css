@@ -1,0 +1,420 @@
+/* ---------- THEME VARIABLES ---------- */
+/* Default: LIGHT MODE */
+:root {
+    --bg-body: #f4f5fb;
+    --bg-shell: radial-gradient(circle at top left, #e5ecff 0, #f4f5fb 60%);
+    --bg-card: #ffffff;
+    --bg-card-soft: #f9fafb;
+
+    --border-subtle: rgba(148, 163, 184, 0.25);
+
+    --accent: #2563eb;
+    --accent-soft: rgba(37, 99, 235, 0.12);
+    --accent-strong: #1d4ed8;
+    --danger: #ef4444;
+
+    --text-main: #0f172a;
+    --text-soft: #6b7280;
+    --text-muted: #9ca3af;
+
+    /* --shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.12); */
+
+    --radius-lg: 18px;
+    --radius-md: 12px;
+}
+
+/* DARK MODE overrides */
+body[data-theme="dark"] {
+    --bg-body: #020617;
+    --bg-shell: radial-gradient(circle at top left, #0f172a 0, #020617 55%);
+    --bg-card: #0b1120;
+    --bg-card-soft: #020617;
+
+    --border-subtle: rgba(148, 163, 184, 0.2);
+
+    --accent: #2563eb;
+    --accent-soft: rgba(37, 99, 235, 0.15);
+    --accent-strong: #1d4ed8;
+    --danger: #ef4444;
+
+    --text-main: #e5e7eb;
+    --text-soft: #9ca3af;
+    --text-muted: #6b7280;
+
+    /* --shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.55); */
+}
+
+/* ---------- GLOBAL RESET ---------- */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+body {
+    min-height: 100vh;
+    background: var(--bg-shell);
+    color: var(--text-main);
+}
+
+/* APP SHELL */
+.app-shell {
+    padding: 90px 24px 32px;
+}
+
+.main-content {
+    max-width: 1180px;
+    margin: 0 auto;
+}
+
+/* -----------------------
+   NAVBAR
+------------------------ */
+.navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: 12px 26px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(15, 23, 42, 0.96);
+    backdrop-filter: blur(18px);
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.75);
+    z-index: 1000;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    color: #e5e7eb;
+}
+
+.navbar-left {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+
+/* BRAND */
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.brand-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at 30% 0, #38bdf8, #2563eb);
+    color: #eff6ff;
+    box-shadow: 0 10px 25px rgba(37, 99, 235, 0.55);
+}
+
+.brand-icon i {
+    font-size: 18px;
+}
+
+.brand-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.brand-name {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: #e5e7eb;
+}
+
+.brand-sub {
+    font-size: 11px;
+    color: #9ca3af;
+}
+
+/* NAV LINKS */
+.nav-links {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.nav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    text-decoration: none;
+    border: 1px solid transparent;
+    color: #e5e7eb;
+    opacity: 0.75;
+    transition: 0.18s ease;
+}
+
+.nav-link i {
+    font-size: 13px;
+    color: inherit;
+}
+
+.nav-link:hover {
+    opacity: 1;
+    background: rgba(15, 23, 42, 0.9);
+    border-color: rgba(148, 163, 184, 0.4);
+}
+
+.nav-link.active {
+    opacity: 1;
+    background: rgba(37, 99, 235, 0.22);
+    border-color: rgba(59, 130, 246, 0.9);
+}
+
+/* RIGHT SIDE / PROFILE */
+.navbar-right {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+
+.profile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    position: relative;
+}
+
+.profile-initial,
+.profile-img {
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at 0 0, #38bdf8, #6366f1);
+    color: #eff6ff;
+    font-weight: 600;
+    font-size: 15px;
+    box-shadow: 0 10px 25px rgba(15, 23, 42, 0.7);
+}
+
+.profile-img {
+    object-fit: cover;
+}
+
+.profile-meta {
+    display: flex;
+    flex-direction: column;
+}
+
+/* DROPDOWN */
+.profile-dropdown {
+    display: none;
+    position: absolute;
+    top: 44px;
+    right: 0;
+    width: 210px;
+    background: #020617;
+    border-radius: 16px;
+    box-shadow: var(--shadow-soft);
+    padding: 10px 0;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    z-index: 1200;
+}
+
+.profile-dropdown.show {
+    display: block;
+}
+
+.profile-dropdown-name {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 14px 10px;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.9);
+}
+
+.profile-dropdown a {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 14px;
+    font-size: 13px;
+    color: var(--text-soft);
+    text-decoration: none;
+    transition: 0.18s ease;
+}
+
+.profile-dropdown a i {
+    font-size: 13px;
+}
+
+.profile-dropdown a:hover {
+    background: rgba(15, 23, 42, 0.9);
+    color: #e5e7eb;
+}
+
+.profile-dropdown a.logout {
+    color: var(--danger);
+}
+
+/* HAMBURGER (MOBILE) */
+.hamburger {
+    display: none;
+    font-size: 20px;
+    color: var(--text-soft);
+    cursor: pointer;
+}
+
+@media (max-width: 900px) {
+    .nav-links {
+        position: fixed;
+        top: 60px;
+        left: 12px;
+        right: 12px;
+        flex-direction: column;
+        align-items: flex-start;
+        background: rgba(15, 23, 42, 0.98);
+        padding: 10px;
+        border-radius: 18px;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        box-shadow: var(--shadow-soft);
+        display: none;
+    }
+
+    .nav-links.show {
+        display: flex;
+    }
+
+    .hamburger {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .app-shell {
+        padding-top: 86px;
+    }
+}
+
+/* GENERIC CARD (can be reused) */
+.card {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-soft);
+    padding: 18px;
+    color: var(--text-main);
+}
+
+/* THEME TOGGLE */
+.theme-toggle {
+    border: 1px solid rgba(148, 163, 184, 0.5);
+    background: rgba(15, 23, 42, 0.4);
+    border-radius: 999px;
+    padding: 5px 10px;
+    font-size: 12px;
+    color: #e5e7eb;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: 0.18s ease;
+}
+
+.theme-toggle i {
+    font-size: 13px;
+}
+
+.theme-toggle:hover {
+    background: rgba(37, 99, 235, 0.3);
+    border-color: rgba(59, 130, 246, 0.8);
+}
+
+/* PROFILE TEXT COLORS ON NAVBAR */
+.profile-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: #e5e7eb;
+}
+
+.profile-role {
+    font-size: 11px;
+    color: #9ca3af;
+}
+
+.profile-dropdown {
+    background: #020617;
+    color: #e5e7eb;
+}
+
+.profile-dropdown a {
+    color: #e5e7eb;
+}
+
+.profile-dropdown a.logout {
+    color: #fecaca;
+}
+
+/* EMBED MODE (views rendered inside iframe modal) */
+body.embed .navbar {
+    display: none;
+}
+
+body.embed .app-shell {
+    padding-top: 24px;   /* smaller top padding when navbar hidden */
+}
+
+.grade-modal-body {
+    padding: 8px 4px 4px;
+}
+
+.grade-modal-content {
+    margin-top: 14px;
+    max-height: 60vh;
+    overflow-y: auto;
+    border-radius: 16px;
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-card-soft);
+    padding: 14px;
+}
+
+.placeholder-text {
+    font-size: 13px;
+    color: var(--text-soft);
+}
+
+.loading-text {
+    font-size: 13px;
+    color: var(--text-soft);
+    font-style: italic;
+}
+
+/* ======================
+   PRINT MODE FIX
+====================== */
+@media print {
+
+    /* Hide the navbar */
+    .navbar {
+        display: none !important;
+    }
+
+    /* Remove extra top space from fixed navbar */
+    .app-shell {
+        padding-top: 0 !important;
+    }
+
+    /* Hide buttons & action controls */
+    button,
+    .ak-review-right {
+        display: none !important;
+    }
+
+    body {
+        background: #ffffff !important;
+    }
+}

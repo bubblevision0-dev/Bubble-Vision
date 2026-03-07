@@ -1,0 +1,1546 @@
+
+
+# analysis/omr_sheet_detection.py
+"""
+Utilities for working with your Bubble Vision sheet:
+
+- detect_and_warp_sheet_from_file(path)  -> full 913x483 sheet (BGR)
+- extract_student_name_from_image(img)   -> safe OCR of NAME line (or "")
+- get_name_crop_data_uri(img)            -> base64 PNG of the NAME region
+"""
+
+import cv2
+import numpy as np
+import base64
+from PIL import Image, ImageOps
+
+# Try to import pytesseract for OCR; if not available, we'll just skip OCR.
+try:
+    import pytesseract
+except ImportError:
+    pytesseract = None
+
+# Final sheet size (same as you use for Q_CENTERS)
+OUT_W = 913
+OUT_H = 483
+
+
+# ---------- basic loading + orientation ----------
+
+def _load_image_with_orientation(path: str):
+    """
+    Load image using Pillow so EXIF orientation is respected,
+    then convert to OpenCV BGR array and force landscape if needed.
+    """
+    pil_img = Image.open(path)
+    pil_img = ImageOps.exif_transpose(pil_img)  # respect EXIF orientation
+    pil_img = pil_img.convert("RGB")
+    rgb = np.array(pil_img)
+    bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+
+    h, w = bgr.shape[:2]
+    if h > w:
+        # Portrait -> rotate to landscape
+        bgr = cv2.rotate(bgr, cv2.ROTATE_90_CLOCKWISE)
+    return bgr
+
+
+# ---------- corner box based warp ----------
+
+def _crop_inside_boxes(img):
+    """
+    Detect the 4 black corner boxes and warp the ENTIRE sheet
+    (including boxes, NAME/SECTION, BUBBLE VISION) to OUT_W x OUT_H.
+    Raises if 4 corners cannot be reliably found.
+    """
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    blur = cv2.GaussianBlur(gray, (5, 5), 0)
+    _, thresh = cv2.threshold(
+        blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
+    )
+
+    h, w = thresh.shape[:2]
+    img_area = float(h * w)
+
+    contours, _ = cv2.findContours(
+        thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+    )
+
+    centers = []
+    for cnt in contours:
+        area = cv2.contourArea(cnt)
+        if area <= 0:
+            continue
+
+        # Reasonable area compared to image
+        if area < img_area * 0.0005 or area > img_area * 0.05:
+            continue
+
+        peri = cv2.arcLength(cnt, True)
+        approx = cv2.approxPolyDP(cnt, 0.04 * peri, True)
+        if len(approx) != 4 or not cv2.isContourConvex(approx):
+            continue
+
+        x, y, ww, hh = cv2.boundingRect(approx)
+        aspect = ww / float(hh + 1e-6)
+        if not (0.6 <= aspect <= 1.4):
+            continue
+
+        M = cv2.moments(approx)
+        if M["m00"] == 0:
+            continue
+        cx = int(M["m10"] / M["m00"])
+        cy = int(M["m01"] / M["m00"])
+        centers.append((cx, cy))
+
+    if len(centers) < 4:
+        raise RuntimeError("Not enough square-like contours for 4 corners.")
+
+    pts = np.array(centers, dtype="float32")
+
+    # Split into left / right groups by x
+    xs = pts[:, 0]
+    median_x = np.median(xs)
+    left_pts = pts[xs <= median_x]
+    right_pts = pts[xs > median_x]
+
+    if len(left_pts) == 0 or len(right_pts) == 0:
+        raise RuntimeError("Cannot split corner candidates into left/right.")
+
+    # Top-left / bottom-left from left_pts (min y / max y)
+    tl = left_pts[np.argmin(left_pts[:, 1])]
+    bl = left_pts[np.argmax(left_pts[:, 1])]
+
+    # Top-right / bottom-right from right_pts
+    tr = right_pts[np.argmin(right_pts[:, 1])]
+    br = right_pts[np.argmax(right_pts[:, 1])]
+
+    src = np.float32([tl, tr, br, bl])
+    dst = np.float32([
+        [0, 0],
+        [OUT_W - 1, 0],
+        [OUT_W - 1, OUT_H - 1],
+        [0, OUT_H - 1],
+    ])
+
+    M = cv2.getPerspectiveTransform(src, dst)
+    warped_full = cv2.warpPerspective(img, M, (OUT_W, OUT_H))
+
+    return warped_full
+
+
+# ---------- fallback crop ----------
+
+def _center_crop(img, crop_ratio=0.9):
+    """
+    Wide center crop & resize when corner boxes fail.
+
+    crop_ratio = fraction of width/height to keep (0.9 = 90%).
+    """
+    h, w = img.shape[:2]
+    r = crop_ratio
+
+    cw = int(w * r)
+    ch = int(h * r)
+
+    x1 = (w - cw) // 2
+    y1 = (h - ch) // 2
+    x2 = x1 + cw
+    y2 = y1 + ch
+
+    cropped = img[y1:y2, x1:x2]
+    final = cv2.resize(cropped, (OUT_W, OUT_H), interpolation=cv2.INTER_AREA)
+    return final
+
+
+# ---------- PUBLIC: main sheet processing ----------
+
+def detect_and_warp_sheet_from_file(input_path: str):
+    """
+    Main function used by your views.
+
+    - Load with EXIF + orientation fix
+    - Try strict 4-corner-box warp
+    - If that fails, do a wide center crop
+    - Rotate 180° so questions go downward
+    - Return a 913x483 BGR image ready for OMR
+    """
+    img = _load_image_with_orientation(input_path)
+
+    try:
+        processed = _crop_inside_boxes(img)
+    except Exception:
+        processed = _center_crop(img, crop_ratio=0.9)
+
+    # Flip so sheet is not upside-down
+    processed = cv2.rotate(processed, cv2.ROTATE_180)
+
+    return processed
+
+
+# ---------- NAME ROI + OCR (safe) ----------
+
+def _name_roi(sheet_img):
+    """
+    Try to locate the NAME / SECTION header region.
+
+    We don't assume it's always at the top or always at the bottom.
+    Instead we:
+      - take a band near the top
+      - take a band near the bottom
+      - pick the one with fewer dark pixels (header has fewer filled bubbles)
+    """
+    h, w = sheet_img.shape[:2]
+
+    # horizontal: between the left/right corner boxes
+    x1 = int(w * 0.05)
+    x2 = int(w * 0.95)
+
+    # candidate 1: TOP band (about 2%..22% of height)
+    y1_top = int(h * 0.02)
+    y2_top = int(h * 0.22)
+    top_band = sheet_img[y1_top:y2_top, x1:x2]
+
+    # candidate 2: BOTTOM band (about 78%..98% of height)
+    y1_bot = int(h * 0.78)
+    y2_bot = int(h * 0.98)
+    bottom_band = sheet_img[y1_bot:y2_bot, x1:x2]
+
+    def dark_ratio(region):
+        gray = cv2.cvtColor(region, cv2.COLOR_BGR2GRAY)
+        _, th = cv2.threshold(
+            gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
+        )
+        black = (th == 0).sum()      # dark pixels
+        total = th.size
+        return black / float(total + 1e-6)
+
+    r_top = dark_ratio(top_band)
+    r_bottom = dark_ratio(bottom_band)
+
+    # header band should have fewer dark pixels than bubbles band
+    return top_band if r_top <= r_bottom else bottom_band
+
+
+def extract_student_name_from_image(sheet_img):
+    """
+    Try to read the student's name from the NAME line (safe).
+
+    If pytesseract or tesseract.exe are not available, this will
+    just return "" (no crash).
+    """
+    if pytesseract is None:
+        return ""
+
+    roi = _name_roi(sheet_img)
+    gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+    gray = cv2.GaussianBlur(gray, (3, 3), 0)
+    _, th = cv2.threshold(
+        gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
+    )
+
+    try:
+        text = pytesseract.image_to_string(th, config="--psm 7")
+    except Exception:
+        # Tesseract not installed or some OCR issue -> just skip
+        return ""
+
+    # Clean up text: drop the word NAME and non-alphanumerics
+    for k in ("NAME", "Name", "name"):
+        text = text.replace(k, "")
+    text = "".join(ch for ch in text if ch.isalnum() or ch.isspace())
+    return text.strip()
+
+
+def get_name_crop_data_uri(sheet_img):
+    """
+    Return a data:image/png;base64,... URI for just the NAME area,
+    so templates can show it with <img src="{{ name_crop_data_uri }}">.
+    """
+    roi = _name_roi(sheet_img)
+    ok, buf = cv2.imencode(".png", roi)
+    if not ok:
+        return ""
+    b64 = base64.b64encode(buf).decode("ascii")
+    return "data:image/png;base64," + b64
+
+
+{% extends 'analysis/users/base.html' %}
+{% load static %}
+
+{% block title %}Answer Key Preview | Item Analysis{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/answer_key.css' %}">
+
+<div class="ak-review-page">
+
+  <!-- ===== TOP HEADER CARD ===== -->
+  <div class="ak-review-header-card">
+    <div class="ak-review-main">
+      <h2>Answer Key &amp; Points Setup</h2>
+      <p class="ak-review-subtitle">
+        Review the answer key, assign points per item, then scan student bubble sheets.
+      </p>
+
+      <div class="ak-chip-row">
+        <span class="ak-chip">Grade {{ grade.name }}</span>
+        <span class="ak-chip">Section {{ section.name }}</span>
+        <span class="ak-chip">{{ subject.name }}</span>
+      </div>
+    </div>
+
+    <div class="ak-review-right">
+      <div class="ak-metrics">
+        <div class="ak-metric">
+          <span class="label">Items</span>
+          <span class="value">{{ items|length }}</span>
+        </div>
+        <div class="ak-metric">
+          <span class="label">Total Points</span>
+          <div class="points-summary">
+  Total points: <span id="totalPointsDisplayFooter">{{ total_points }}</span>
+</div>
+
+        </div>
+      </div>
+
+     {# answer_key_review.html – somewhere in the header card, after metrics #}
+
+<form id="scanForm"
+      method="post"
+      action="{% url 'upload_bubble_image' answer_key.pk %}"
+      enctype="multipart/form-data">
+  {% csrf_token %}
+  <input id="sheetImageInput"
+         type="file"
+         accept="image/*"
+         capture="environment"
+         name="sheet_image"
+         style="display:none"
+         onchange="document.getElementById('scanForm').submit();">
+
+  <button class="scan-btn"
+          type="button"
+          onclick="document.getElementById('sheetImageInput').click();">
+    <i class="fa fa-camera"></i>
+    <span>Scan Sheet</span>
+  </button>
+</form>
+
+
+<a href="{% url 'bubble_result_latest' answer_key.pk %}"
+   class="ak-link-secondary"
+   style="font-size:0.8rem; display:inline-block; margin-top:4px;">
+  View last scanned sheet
+</a>
+
+
+
+
+    </div>
+  </div>
+
+  <!-- ===== LEGEND ===== -->
+  <div class="ak-legend">
+    <span class="legend-pill legend-key">Key answer</span>
+    <span class="legend-pill legend-student">Student choice</span>
+    <span class="legend-pill legend-correct">Correct</span>
+    <span class="legend-pill legend-wrong">Wrong</span>
+  </div>
+
+  <!-- ===== BUBBLE SHEET CARD ===== -->
+  <div class="bubble-sheet-preview">
+    <form method="post">
+      {% csrf_token %}
+
+      <div class="two-column-container">
+
+        {# LEFT COLUMN: 1–25 #}
+        <div class="column">
+          {% for item in items|slice:":25" %}
+            <div class="bubble-row">
+              <span class="question-number">
+                {{ item.number }}.
+              </span>
+
+              <div class="bubble-options">
+                {% for option in options %}
+                  <span class="
+                      bubble
+                      {% if option == item.correct %}correct-answer{% endif %}
+                      {% if option == item.student %}student-choice{% endif %}
+                      {% if option == item.student and not item.is_correct %}student-wrong{% endif %}
+                      {% if option == item.student and item.is_correct %}student-correct{% endif %}
+                    "
+                    data-item="{{ item.number }}"
+                    data-option="{{ option }}">
+                    {{ option }}
+                  </span>
+                {% endfor %}
+              </div>
+              <!-- 🔹 new hidden input storing key letter -->
+              <input type="hidden"
+              name="ans_{{ item.number }}"
+              id="ans_{{ item.number }}"
+              value="{{ item.correct }}">
+
+              <div class="item-meta" data-item-number="{{ item.number }}">
+                <label class="points-label" for="points_{{ item.number }}">Pts</label>
+                <input type="number"
+                       class="points-input"
+                       id="points_{{ item.number }}"
+                       name="points_{{ item.number }}"
+                       min="0"
+                       step="0.5"
+                       value="{{ item.points|default:'1' }}">
+                <button type="button"
+                        class="item-detail-btn"
+                        data-item="{{ item.number }}">
+                  <i class="fas fa-info-circle"></i>
+                </button>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+
+        {# RIGHT COLUMN: 26–50 #}
+        <div class="column">
+          {% for item in items|slice:"25:50" %}
+            <div class="bubble-row">
+              <span class="question-number">
+                {{ item.number }}.
+              </span>
+
+              <div class="bubble-options">
+                {% for option in options %}
+                  <span class="
+                    bubble
+                    {% if option == item.correct %}
+                        correct-answer
+                    {% elif option == item.student and item.is_correct %}
+                        student-correct
+                    {% elif option == item.student and not item.is_correct %}
+                        student-wrong
+                    {% elif option == item.student %}
+                        student-choice
+                    {% endif %}
+                ">
+                    {{ option }}
+                </span>
+
+                {% endfor %}
+              </div>
+
+              <div class="item-meta" data-item-number="{{ item.number }}">
+                <label class="points-label" for="points_{{ item.number }}">Pts</label>
+                <input type="number"
+                       class="points-input"
+                       id="points_{{ item.number }}"
+                       name="points_{{ item.number }}"
+                       min="0"
+                       step="0.5"
+                       value="{{ item.points|default:'1' }}">
+                <button type="button"
+                        class="item-detail-btn"
+                        data-item="{{ item.number }}">
+                  <i class="fas fa-info-circle"></i>
+                </button>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+
+      </div>
+
+      {# HIDDEN TOTAL FOR BACKEND #}
+      <input type="hidden" name="total_points" id="totalPointsInput" value="{{ total_points }}">
+
+        <div class="points-footer" id="akSaveBar" style="display:none;">
+          <div class="points-summary">
+            Total points: <span id="totalPointsDisplayFooter">{{ total_points }}</span>
+          </div>
+
+          <button type="submit" class="btn-submit-points">
+            <i class="fas fa-save"></i>
+            Save changes
+          </button>
+        </div>
+
+
+
+    </form>
+  </div>
+</div>
+
+{# ===== SINGLE MODAL FOR POINTS DETAIL ===== #}
+<div class="item-detail-modal-overlay" id="itemDetailModal">
+  <div class="item-detail-modal">
+    <div class="item-detail-modal-header">
+      <h3>Item Details</h3>
+      <button type="button"
+              class="item-detail-modal-close"
+              id="itemDetailModalClose">
+        &times;
+      </button>
+    </div>
+
+    <div class="item-detail-modal-body">
+      <p id="itemDetailTitle">
+        Question <span id="detailQuestionNo"></span>
+      </p>
+
+      <div class="modal-field">
+        <label for="modalPointsInput">Points for this item</label>
+        <input type="number"
+               id="modalPointsInput"
+               min="0"
+               step="0.5">
+      </div>
+
+      <p class="modal-hint">
+        Set how many points this item is worth before scanning student sheets.
+        The scanner will use this when computing scores and item analysis.
+      </p>
+    </div>
+
+    <div class="item-detail-modal-footer">
+      <button type="button"
+              class="btn-modal-primary"
+              id="itemDetailSaveBtn">
+        Save
+      </button>
+      <button type="button"
+              class="btn-modal-secondary"
+              id="itemDetailCancelBtn">
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ========= TOTAL POINTS CALCULATION ========= */
+(function() {
+  const inputs     = document.querySelectorAll('.points-input');
+  const headerSpan = document.getElementById('totalPointsDisplay');       // top card
+  const footerSpan = document.getElementById('totalPointsDisplayFooter'); // bottom summary
+  const hiddenInput = document.getElementById('totalPointsInput');
+
+  function recalcTotal() {
+    let total = 0;
+    inputs.forEach(inp => {
+      const val = parseFloat(inp.value);
+      if (!isNaN(val)) total += val;
+    });
+
+    const formatted = total.toFixed(2).replace(/\.00$/, '');
+
+    if (headerSpan) headerSpan.textContent = formatted;
+    if (footerSpan) footerSpan.textContent = formatted;
+    if (hiddenInput) hiddenInput.value = total;
+  }
+
+  // initial compute
+  recalcTotal();
+
+  inputs.forEach(inp => {
+    inp.addEventListener('input', recalcTotal);
+    inp.addEventListener('change', recalcTotal);
+  });
+
+  // Expose globally so modal can trigger recompute if needed
+  window.__recalcAnswerKeyTotal = recalcTotal;
+})();
+
+/* ========= POINTS DETAIL MODAL LOGIC ========= */
+(function() {
+  const modalOverlay   = document.getElementById('itemDetailModal');
+  const modalClose     = document.getElementById('itemDetailModalClose');
+  const modalCancel    = document.getElementById('itemDetailCancelBtn');
+  const modalSave      = document.getElementById('itemDetailSaveBtn');
+  const modalPointsInp = document.getElementById('modalPointsInput');
+  const detailQuestion = document.getElementById('detailQuestionNo');
+
+  let currentPointsInput = null;
+
+  // Open modal when clicking info icon
+  document.querySelectorAll('.item-detail-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const itemMeta = btn.closest('.item-meta');
+      currentPointsInput = itemMeta.querySelector('.points-input');
+
+      detailQuestion.textContent = btn.dataset.item;
+      modalPointsInp.value = currentPointsInput.value || '1';
+
+      modalOverlay.classList.add('show');
+      document.body.style.overflow = 'hidden';
+    });
+  });
+
+  function closeModal() {
+    modalOverlay.classList.remove('show');
+    document.body.style.overflow = '';
+    currentPointsInput = null;
+  }
+
+  if (modalClose)  modalClose.addEventListener('click', closeModal);
+  if (modalCancel) modalCancel.addEventListener('click', closeModal);
+
+  // click outside to close
+  if (modalOverlay) {
+    modalOverlay.addEventListener('click', (e) => {
+      if (e.target === modalOverlay) {
+        closeModal();
+      }
+    });
+  }
+
+  if (modalSave) {
+    modalSave.addEventListener('click', () => {
+      if (currentPointsInput) {
+        currentPointsInput.value = modalPointsInp.value || '1';
+
+        // Recompute total after updating a point
+        if (window.__recalcAnswerKeyTotal) {
+          window.__recalcAnswerKeyTotal();
+        }
+      }
+      closeModal();
+    });
+  }
+})();
+
+(function() {
+  const inputs      = document.querySelectorAll('.points-input');
+  const headerSpan  = document.getElementById('totalPointsDisplay');       // top card
+  const footerSpan  = document.getElementById('totalPointsDisplayFooter'); // bottom summary
+  const hiddenInput = document.getElementById('totalPointsInput');
+
+  function recalcTotal() {
+    let total = 0;
+    inputs.forEach(inp => {
+      const val = parseFloat(inp.value);
+      if (!isNaN(val)) total += val;
+    });
+
+    const formatted = total.toFixed(2).replace(/\.00$/, '');
+    if (headerSpan) headerSpan.textContent = formatted;
+    if (footerSpan) footerSpan.textContent = formatted;
+    if (hiddenInput) hiddenInput.value = total;
+  }
+
+  recalcTotal();
+
+  inputs.forEach(inp => {
+    inp.addEventListener('input', () => {
+      recalcTotal();
+      window.__markAnswerKeyDirty && window.__markAnswerKeyDirty();
+    });
+  });
+
+  window.__recalcAnswerKeyTotal = recalcTotal;
+})();
+
+/* ========= CLICKABLE BUBBLES + SAVE BAR ========= */
+<script>
+// ========= CLICKABLE BUBBLES + SAVE BAR =========
+(function () {
+  const bubbles = document.querySelectorAll('.bubble-options .bubble');
+  const saveBar = document.getElementById('akSaveBar');
+  let dirty = false;
+
+  function markDirty() {
+    if (!dirty) {
+      dirty = true;
+      if (saveBar) saveBar.style.display = 'flex';
+    }
+  }
+
+  bubbles.forEach(bubble => {
+    bubble.style.cursor = 'pointer';
+
+    bubble.addEventListener('click', () => {
+      const itemNo = bubble.dataset.item;
+      const option = bubble.dataset.option;
+      if (!itemNo || !option) return;
+
+      // 1) Update hidden input for this item
+      const hidden = document.getElementById(`ans_${itemNo}`);
+      if (hidden) hidden.value = option;
+
+      // 2) Remove old highlight in this row
+      const row = bubble.closest('.bubble-options');
+      if (row) {
+        row.querySelectorAll('.bubble').forEach(b => {
+          b.classList.remove('correct-answer');
+        });
+      }
+
+      // 3) Add highlight to clicked bubble
+      bubble.classList.add('correct-answer');
+
+      // 4) Show "Save changes" bar
+      markDirty();
+    });
+  });
+
+  // also mark dirty when points change
+  document.querySelectorAll('.points-input').forEach(inp => {
+    inp.addEventListener('input', markDirty);
+    inp.addEventListener('change', markDirty);
+  });
+})();
+</script>
+
+</script>
+
+{% endblock %}
+
+{% extends 'analysis/users/base.html' %}
+{% load static %}
+
+{% block title %}Bubble Sheet Result{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/answer_key.css' %}">
+
+<style>
+  .name-strip-card {
+      margin-top: 16px;
+      margin-bottom: 12px;
+  }
+  .name-strip-card h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+  }
+  .name-strip-link {
+      display: inline-block;
+      cursor: pointer;
+  }
+</style>
+
+<div class="ak-review-page">
+
+  <!-- ===== HEADER (grade / section / subject / detected name) ===== -->
+  <div class="ak-review-header-card">
+    <div class="ak-review-main">
+      <h2>Bubble Sheet Captured</h2>
+      <p class="ak-review-subtitle">
+        Below is the detected name area. Click it to go to the bubble test score page.
+      </p>
+
+      <div class="ak-chip-row">
+        <span class="ak-chip">Grade {{ grade.name }}</span>
+        <span class="ak-chip">Section {{ section.name }}</span>
+        <span class="ak-chip">{{ subject.name }}</span>
+      </div>
+    </div>
+
+    <div class="ak-review-right">
+      <div class="ak-metrics">
+        <div class="ak-metric">
+          <span class="label">Detected name</span>
+          <span class="value">
+            {{ student_name|default:"(name not detected)" }}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== NAME STRIP FIRST (CLICKABLE → bubble_score.html) ===== -->
+  {% if name_crop_data_uri %}
+  <div class="name-strip-card">
+    <h3>Name area (cropped)</h3>
+    <p style="font-size:0.8rem; color:#777; margin-bottom:4px;">
+      Click this strip to open the bubble test score and full sheet.
+    </p>
+
+    <!-- 🔹 Clicking this goes to bubble_score for this answer key -->
+    <a href="{% url 'bubble_score' answer_key.pk %}"
+       class="name-strip-link">
+      <img src="{{ name_crop_data_uri }}"
+           alt="Name crop"
+           style="width:100%; max-width:600px;
+                  border-radius:8px; border:1px solid #ddd;">
+    </a>
+  </div>
+  {% endif %}
+
+  <!-- Optional: simple form to edit/save name on this page -->
+  <form method="post" action="#">
+    {% csrf_token %}
+    <div style="margin-bottom: 12px;">
+      <label for="student-name-input" style="font-weight:600;">
+        Student name (you can edit)
+      </label>
+      <input type="text"
+             id="student-name-input"
+             name="student_name"
+             value="{{ student_name }}"
+             style="width: 100%; max-width: 320px;
+                    padding: 6px 10px;
+                    border-radius: 6px;
+                    border: 1px solid #ccc;
+                    margin-top: 4px;">
+    </div>
+
+    <div style="margin-top: 18px; display:flex; gap:8px; flex-wrap: wrap;">
+      <a href="{% url 'answer_key_review' answer_key.pk %}"
+         class="btn btn-secondary">
+        ← Back to Answer Key
+      </a>
+
+      <button type="submit"
+              class="btn btn-primary">
+        Save Name
+      </button>
+    </div>
+  </form>
+
+</div>
+
+<script>
+  // Show the sheet result when the cropped name strip is clicked
+  (function () {
+    const strip = document.getElementById('nameStripToggle');
+    const sheetPanel = document.getElementById('sheetPanel');
+
+    if (!strip || !sheetPanel) return;
+
+    strip.addEventListener('click', function (e) {
+      e.preventDefault();
+      // only show (no toggle hide); if you want toggle, change the logic
+      if (sheetPanel.style.display === 'none' || sheetPanel.style.display === '') {
+        sheetPanel.style.display = 'block';
+        sheetPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  })();
+</script>
+
+{% endblock %}
+
+{% extends 'analysis/users/base.html' %}
+{% load static %}
+
+{% block title %}Bubble Test Score{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/answer_key.css' %}">
+
+<div class="ak-review-page">
+
+  <div class="ak-review-header-card">
+    <div class="ak-review-main">
+      <h2>Bubble Test Result</h2>
+      <p class="ak-review-subtitle">
+        Scanned sheet and score for
+        {{ student_name|default:"this student" }}.
+      </p>
+
+      <div class="ak-chip-row">
+        <span class="ak-chip">Grade {{ grade.name }}</span>
+        <span class="ak-chip">Section {{ section.name }}</span>
+        <span class="ak-chip">{{ subject.name }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="bubble-sheet-preview" style="margin-top:16px;">
+    <div style="max-width: 960px; margin: 0 auto;">
+      <img src="{{ sheet_image_url }}"
+           alt="Scanned bubble sheet"
+           style="width:100%; border-radius:12px;
+                  box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+    </div>
+
+    {% if results %}
+      <!-- later: show detailed per-item results here -->
+      <div style="margin-top:16px;">
+        {{ results|safe }}
+      </div>
+    {% else %}
+      <p style="margin-top:16px; font-size:0.9rem; color:#666;">
+        Scoring logic will be added here (OMR pipeline).
+      </p>
+    {% endif %}
+
+    <div style="margin-top:18px;">
+      <a href="javascript:history.back();"
+         class="btn btn-secondary">
+        ← Back to Bubble Result
+      </a>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+
+
+# analysis/omr_sheet_detection.py
+import cv2
+import numpy as np
+from PIL import Image, ImageOps
+import base64
+
+try:
+    import pytesseract
+except ImportError:
+    pytesseract = None
+
+OUT_W = 913
+OUT_H = 483
+
+# ---------------- existing helpers ----------------
+
+def _load_image_with_orientation(path):
+    pil_img = Image.open(path)
+    pil_img = ImageOps.exif_transpose(pil_img)
+    pil_img = pil_img.convert("RGB")
+    rgb = np.array(pil_img)
+    bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+    h, w = bgr.shape[:2]
+    if h > w:
+        bgr = cv2.rotate(bgr, cv2.ROTATE_90_CLOCKWISE)
+    return bgr
+
+def _crop_inside_boxes(img):
+    # (same code we already wrote: detect 4 boxes and warp whole sheet to OUT_W x OUT_H)
+    ...
+    return warped_full
+
+def _center_crop(img, crop_ratio=0.9):
+    h, w = img.shape[:2]
+    r = crop_ratio
+    cw = int(w * r)
+    ch = int(h * r)
+    x1 = (w - cw) // 2
+    y1 = (h - ch) // 2
+    x2 = x1 + cw
+    y2 = y1 + ch
+    cropped = img[y1:y2, x1:x2]
+    final = cv2.resize(cropped, (OUT_W, OUT_H), interpolation=cv2.INTER_AREA)
+    return final
+
+def detect_and_warp_sheet_from_file(input_path):
+    img = _load_image_with_orientation(input_path)
+    if img is None:
+        raise ValueError(f"Cannot read image: {input_path}")
+
+    try:
+        processed = _crop_inside_boxes(img)
+    except Exception:
+        processed = _center_crop(img, crop_ratio=0.9)
+
+    # rotate so questions go downward
+    processed = cv2.rotate(processed, cv2.ROTATE_180)
+    return processed
+
+# -------------- NAME OCR + CROP helpers ----------------
+
+def _name_roi(sheet_img):
+    """
+    Get just the NAME: ______ line region from a 913x483 sheet image.
+    Returns a smaller BGR image.
+    """
+    h, w = sheet_img.shape[:2]
+    # same ROI as before (tune later if needed)
+    x1 = int(w * 0.12)
+    x2 = int(w * 0.52)
+    y1 = int(h * 0.13)
+    y2 = int(h * 0.22)
+    return sheet_img[y1:y2, x1:x2]
+
+def extract_student_name_from_image(sheet_img):
+    """
+    Try to read the student's name from the NAME line.
+    sheet_img = full 913x483 sheet (BGR).
+    """
+    if pytesseract is None:
+        return ""
+
+    roi = _name_roi(sheet_img)
+    gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+    gray = cv2.GaussianBlur(gray, (3, 3), 0)
+    _, th = cv2.threshold(gray, 0, 255,
+                          cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+    text = pytesseract.image_to_string(th, config="--psm 7")
+    text = text.replace("NAME", "").replace("Name", "").replace("name", "")
+    text = "".join(ch for ch in text if ch.isalnum() or ch.isspace())
+    return text.strip()
+
+def get_name_crop_data_uri(sheet_img):
+    """
+    Return a data:image/png;base64,... URI for the NAME area so
+    templates can <img src="..."> it without saving another file.
+    """
+    roi = _name_roi(sheet_img)
+    ok, buf = cv2.imencode(".png", roi)
+    if not ok:
+        return ""
+    b64 = base64.b64encode(buf).decode("ascii")
+    return "data:image/png;base64," + b64
+
+
+
+
+
+
+
+def upload_bubble_image(request, pk):
+    answer_key = get_object_or_404(AnswerKey, pk=pk)
+
+    if request.method == "POST":
+        img = request.FILES.get("sheet_image")
+        if not img:
+            messages.error(request, "No image received from camera.")
+            return redirect("answer_key_review", pk=answer_key.pk)
+
+        # 1) Save original upload
+        scans_dir = os.path.join(settings.MEDIA_ROOT, "bubble_scans")
+        os.makedirs(scans_dir, exist_ok=True)
+
+        raw_path = os.path.join(scans_dir, f"raw_{pk}_{img.name}")
+        with open(raw_path, "wb+") as dest:
+            for chunk in img.chunks():
+                dest.write(chunk)
+
+        # 2) Crop to ROI (center area) – this is the "only part" we use
+        roi_path = crop_to_bubble_region(raw_path)
+
+        # 3) Run your OMR on the cropped image
+        # result = process_bubble_sheet(roi_path, answer_key)
+        # TODO: save result / redirect to result page
+
+        messages.success(request, "Bubble sheet image captured and cropped.")
+        return redirect("answer_key_review", pk=answer_key.pk)
+
+    return redirect("answer_key_review", pk=answer_key.pk)
+
+def crop_to_bubble_region(image_path):
+    img = cv2.imread(image_path)
+    if img is None:
+        return image_path  # fallback
+
+    h, w = img.shape[:2]
+
+    # 🔹 Example: center 80% region (can tweak these percentages)
+    top    = int(h * 0.10)
+    bottom = int(h * 0.90)
+    left   = int(w * 0.10)
+    right  = int(w * 0.90)
+
+    roi = img[top:bottom, left:right]
+
+    # Save cropped image next to original
+    base, ext = os.path.splitext(image_path)
+    roi_path = f"{base}_roi{ext}"
+    cv2.imwrite(roi_path, roi)
+
+    return roi_path
+
+def scan_sheet_camera(request, answer_key_id):
+    answer_key = get_object_or_404(AnswerKey, pk=answer_key_id)
+
+    if request.method == "POST":
+        # receive base64 image from JS
+        image_data = request.POST.get("image_data")
+        # decode, save, run OMR → redirect to result
+        ...
+        return redirect("answer_key_review", pk=answer_key.pk)
+
+    return render(request, "analysis/users/scan_sheet_camera.html", {
+        "answer_key": answer_key,
+    })
+    
+def capture_bubble_sheet(request, grade_id, section_id, subject_id):
+    """
+    Camera page:
+      - GET: show live camera + capture button
+      - POST: receive base64 image_data, save it, detect 4 corner boxes,
+              warp the sheet, and (later) send to OMR pipeline.
+    """
+    grade = get_object_or_404(Grade, pk=grade_id)
+    section = get_object_or_404(Section, pk=section_id)
+    subject = get_object_or_404(Subject, pk=subject_id)
+
+    answer_key = (
+        AnswerKey.objects
+        .filter(grade=grade, section=section, subject=subject)
+        .first()
+    )
+
+    if not answer_key:
+        messages.error(
+            request,
+            "No answer key found for this Grade / Section / Subject."
+        )
+        # change "answer_key_list" to whatever fits your app
+        return redirect("answer_key_list")
+
+    if request.method == "POST":
+        image_data = request.POST.get("image_data")
+        if not image_data:
+            return render(
+                request,
+                "analysis/capture_bubble_sheet.html",
+                {
+                    "grade": grade,
+                    "section": section,
+                    "subject": subject,
+                    "answer_key": answer_key,
+                    "error": "No image captured. Please try again.",
+                },
+            )
+
+        try:
+            header, base64_data = image_data.split(",", 1)
+            image_bytes = base64.b64decode(base64_data)
+        except Exception:
+            return render(
+                request,
+                "analysis/capture_bubble_sheet.html",
+                {
+                    "grade": grade,
+                    "section": section,
+                    "subject": subject,
+                    "answer_key": answer_key,
+                    "error": "Invalid image data. Please capture again.",
+                },
+            )
+
+        # 1) Save raw captured image
+        scans_dir = os.path.join(settings.MEDIA_ROOT, "bubble_scans")
+        os.makedirs(scans_dir, exist_ok=True)
+
+        raw_filename = f"raw_g{grade_id}_s{section_id}_sub{subject_id}_{uuid.uuid4().hex}.png"
+        raw_path = os.path.join(scans_dir, raw_filename)
+
+        with open(raw_path, "wb") as f:
+            f.write(image_bytes)
+
+        # 2) Detect 4 corner boxes and warp sheet
+        try:
+            warped_path, warped_img = detect_and_warp_sheet(raw_path)
+        except ValueError as e:
+            messages.error(request, f"Corner detection failed: {e}")
+            return render(
+                request,
+                "analysis/capture_bubble_sheet.html",
+                {
+                    "grade": grade,
+                    "section": section,
+                    "subject": subject,
+                    "answer_key": answer_key,
+                    "error": "Could not detect the 4 corner boxes. "
+                             "Make sure all 4 squares are visible and recapture.",
+                },
+            )
+
+        # 3) (optional) call your OMR on warped sheet
+        # try:
+        #     result = process_bubble_sheet(warped_path, answer_key)
+        # except Exception as e:
+        #     messages.error(request, f"OMR processing error: {e}")
+        #     return redirect("answer_key_review", pk=answer_key.pk)
+
+        messages.success(
+            request,
+            "Bubble sheet captured and aligned using the 4 corner boxes."
+        )
+        return redirect("answer_key_review", pk=answer_key.pk)
+
+    # GET → show camera page
+    return render(
+        request,
+        "analysis/capture_bubble_sheet.html",
+        {
+            "grade": grade,
+            "section": section,
+            "subject": subject,
+            "answer_key": answer_key,
+        },
+    )
+    
+def upload_bubble_image(request, pk):
+    """
+    Handle an uploaded camera photo of a bubble sheet.
+
+    After processing, show bubble_result.html with:
+      - cropped sheet preview
+      - auto-detected student name (if any)
+      - grade / section / subject
+    """
+    answer_key = get_object_or_404(AnswerKey, pk=pk)
+
+    if request.method != "POST":
+        return redirect("answer_key_review", pk=pk)
+
+    img = request.FILES.get("sheet_image")
+    if not img:
+        messages.error(request, "No image received from camera.")
+        return redirect("answer_key_review", pk=answer_key.pk)
+
+    # ----- 1) TEMP SAVE raw upload -----
+    tmp_dir = os.path.join(settings.MEDIA_ROOT, "_tmp_scans")
+    os.makedirs(tmp_dir, exist_ok=True)
+
+    tmp_path = os.path.join(tmp_dir, f"{uuid.uuid4().hex}.png")
+    with open(tmp_path, "wb+") as dest:
+        for chunk in img.chunks():
+            dest.write(chunk)
+
+    # ----- 2) Process (warp/crop/rotate) -----
+    try:
+        sheet_img = detect_and_warp_sheet_from_file(tmp_path)
+    finally:
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+
+    # ----- 3) Save final sheet image under grade/section/subject -----
+    def _safe(s):
+        return str(s).strip().replace(" ", "_").replace("/", "_").lower()
+
+    grade_folder = _safe(answer_key.grade.name)
+    section_folder = _safe(answer_key.section.name)
+    subject_folder = _safe(answer_key.subject.name)
+
+    scans_dir = os.path.join(
+        settings.MEDIA_ROOT,
+        "bubble_scans",
+        grade_folder,
+        section_folder,
+        subject_folder,
+    )
+    os.makedirs(scans_dir, exist_ok=True)
+
+    final_filename = f"sheet_{uuid.uuid4().hex}.png"
+    final_path = os.path.join(scans_dir, final_filename)
+
+    cv2.imwrite(final_path, sheet_img)
+
+    # URL for <img src="...">
+    rel_path = os.path.relpath(final_path, settings.MEDIA_ROOT).replace("\\", "/")
+    sheet_image_url = settings.MEDIA_URL + rel_path
+
+    # ----- 4) Try to read student name from NAME line -----
+    student_name = extract_student_name_from_image(sheet_img)
+
+    # ----- 5) Render result page -----
+    context = {
+        "answer_key": answer_key,
+        "grade": answer_key.grade,
+        "section": answer_key.section,
+        "subject": answer_key.subject,
+        "sheet_image_url": sheet_image_url,
+        "student_name": student_name,
+    }
+    return render(request, "analysis/users/bubble_result.html", context)
+
+def _safe_folder_name(s: str) -> str:
+    return str(s).strip().replace(" ", "_").replace("/", "_").lower()
+
+
+# ---------- INTERNAL: render bubble_result for a given file path ----------
+
+def _render_bubble_result_for_path(request, answer_key, sheet_path):
+    """
+    sheet_path: absolute path to a 913x483 PNG/JPG already on disk.
+    Loads it, extracts name + name crop, and renders bubble_result.html.
+    """
+    # 1) Load processed sheet image
+    sheet_img = cv2.imread(sheet_path)
+    if sheet_img is None:
+        messages.error(request, "Cannot read scanned sheet image.")
+        return redirect("answer_key_review", pk=answer_key.pk)
+
+    # 2) Student name + name crop
+    student_name = extract_student_name_from_image(sheet_img)
+    name_crop_data_uri = get_name_crop_data_uri(sheet_img)
+
+    # 3) URL for full sheet image
+    rel_path = os.path.relpath(sheet_path, settings.MEDIA_ROOT).replace("\\", "/")
+    sheet_image_url = settings.MEDIA_URL + rel_path
+
+    context = {
+        "answer_key": answer_key,
+        "grade": answer_key.grade,
+        "section": answer_key.section,
+        "subject": answer_key.subject,
+        "sheet_image_url": sheet_image_url,
+        "student_name": student_name,
+        "name_crop_data_uri": name_crop_data_uri,
+    }
+    return render(request, "analysis/users/bubble_result.html", context)
+
+
+# ---------- 1) live scan from phone: upload_bubble_image ----------
+
+def upload_bubble_image(request, pk):
+    """
+    Called right after the phone takes a picture.
+    Processes it, saves to folder, then shows bubble_result.html.
+    """
+    answer_key = get_object_or_404(AnswerKey, pk=pk)
+
+    if request.method != "POST":
+        return redirect("answer_key_review", pk=pk)
+
+    img = request.FILES.get("sheet_image")
+    if not img:
+        messages.error(request, "No image received from camera.")
+        return redirect("answer_key_review", pk=answer_key.pk)
+
+    # --- 1) save raw upload temporarily ---
+    tmp_dir = os.path.join(settings.MEDIA_ROOT, "_tmp_scans")
+    os.makedirs(tmp_dir, exist_ok=True)
+    tmp_path = os.path.join(tmp_dir, f"{uuid.uuid4().hex}.png")
+
+    with open(tmp_path, "wb+") as dest:
+        for chunk in img.chunks():
+            dest.write(chunk)
+
+    # --- 2) process (warp/crop/rotate) ---
+    try:
+        sheet_img = detect_and_warp_sheet_from_file(tmp_path)
+    finally:
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+
+    # --- 3) save processed sheet under grade/section/subject ---
+    base_dir = os.path.join(
+        settings.MEDIA_ROOT,
+        "bubble_scans",
+        _safe_folder_name(answer_key.grade.name),
+        _safe_folder_name(answer_key.section.name),
+        _safe_folder_name(answer_key.subject.name),
+    )
+    os.makedirs(base_dir, exist_ok=True)
+
+    final_filename = f"sheet_{uuid.uuid4().hex}.png"
+    final_path = os.path.join(base_dir, final_filename)
+    cv2.imwrite(final_path, sheet_img)
+
+    # --- 4) show bubble_result.html for this new scan ---
+    return _render_bubble_result_for_path(request, answer_key, final_path)
+
+
+# ---------- 2) later: view latest result again (no phone) ----------
+
+def bubble_result_latest(request, pk):
+    """
+    When the teacher comes back later (phone not connected),
+    load the latest saved sheet for this answer key and show bubble_result.html.
+    """
+    answer_key = get_object_or_404(AnswerKey, pk=pk)
+
+    scans_dir = os.path.join(
+        settings.MEDIA_ROOT,
+        "bubble_scans",
+        _safe_folder_name(answer_key.grade.name),
+        _safe_folder_name(answer_key.section.name),
+        _safe_folder_name(answer_key.subject.name),
+    )
+
+    if not os.path.isdir(scans_dir):
+        messages.error(request, "No scanned bubble sheets found yet.")
+        return redirect("answer_key_review", pk=pk)
+
+    files = [
+        os.path.join(scans_dir, f)
+        for f in os.listdir(scans_dir)
+        if f.lower().endswith((".png", ".jpg", ".jpeg"))
+    ]
+    if not files:
+        messages.error(request, "No scanned bubble sheets found yet.")
+        return redirect("answer_key_review", pk=pk)
+
+    latest_path = max(files, key=os.path.getmtime)
+
+    return _render_bubble_result_for_path(request, answer_key, latest_path)
+
+
+# ---------- 3) bubble_score: separate page showing full sheet & score ----------
+
+def bubble_score(request, pk):
+    """
+    Show the bubble test result page for the latest scanned sheet
+    of this answer key (full sheet + score section).
+    """
+    answer_key = get_object_or_404(AnswerKey, pk=pk)
+
+    scans_dir = os.path.join(
+        settings.MEDIA_ROOT,
+        "bubble_scans",
+        _safe_folder_name(answer_key.grade.name),
+        _safe_folder_name(answer_key.section.name),
+        _safe_folder_name(answer_key.subject.name),
+    )
+
+    if not os.path.isdir(scans_dir):
+        messages.error(request, "No scanned bubble sheets found yet.")
+        return redirect("answer_key_review", pk=pk)
+
+    files = [
+        os.path.join(scans_dir, f)
+        for f in os.listdir(scans_dir)
+        if f.lower().endswith((".png", ".jpg", ".jpeg"))
+    ]
+    if not files:
+        messages.error(request, "No scanned bubble sheets found yet.")
+        return redirect("answer_key_review", pk=pk)
+
+    latest_path = max(files, key=os.path.getmtime)
+
+    sheet_img = cv2.imread(latest_path)
+    if sheet_img is None:
+        messages.error(request, "Cannot read scanned sheet image.")
+        return redirect("answer_key_review", pk=pk)
+
+    rel_path = os.path.relpath(latest_path, settings.MEDIA_ROOT).replace("\\", "/")
+    sheet_image_url = settings.MEDIA_URL + rel_path
+
+    student_name = extract_student_name_from_image(sheet_img)
+    name_crop_data_uri = get_name_crop_data_uri(sheet_img)
+
+    # TODO: plug OMR scoring here
+    results = None
+
+    context = {
+        "answer_key": answer_key,
+        "grade": answer_key.grade,
+        "section": answer_key.section,
+        "subject": answer_key.subject,
+        "sheet_image_url": sheet_image_url,
+        "student_name": student_name,
+        "name_crop_data_uri": name_crop_data_uri,
+        "results": results,
+    }
+    return render(request, "analysis/users/bubble_score.html", context)
+
+
+    path(
+        "answer-key-review/<int:pk>/latest-bubble-result/",
+        views.bubble_result_latest,
+        name="bubble_result_latest",
+    ),
+    path(
+        "answer-key/<int:pk>/bubble-score/",
+        views.bubble_score,
+        name="bubble_score",
+    ),
+
+
+{% extends 'analysis/users/base.html' %}
+{% load static %}
+
+{% block title %}Bubble Sheet Result{% endblock %}
+
+{% block content %}
+
+<div class="scan-btn-container">
+  <button class="scan-btn" onclick="window.location.href='{% url 'scan_document' answer_key.id %}'">
+    <i class="fa fa-camera"></i> Scan Another Sheet
+  </button>
+</div>
+
+<div class="bubble-sheet-preview">
+  <h2>Bubble Test Sheet Result</h2>
+  <p>
+    Grade: {{ grade.name }} |
+    Section: {{ section.name }} |
+    Subject: {{ subject.name }}
+  </p>
+
+  <div class="two-column-container">
+
+    {# LEFT COLUMN: 1–25 #}
+    <div class="column">
+      {% for item in items|slice:":25" %}
+        <div class="bubble-row">
+          <span class="question-number">
+            {{ item.number }}.
+          </span>
+
+          {% for option in options %}
+            {% with is_student=option|yesno:"True,False" %}
+            {% endwith %}
+            {% comment %}
+              We'll compute classes below without the 'with' equals issue.
+            {% endcomment %}
+
+            {% if option == item.student %}
+              {% if item.is_correct %}
+                {% comment %}Student's correct answer{% endcomment %}
+                <span class="bubble student-choice student-correct">
+                  {{ option }}
+                </span>
+              {% else %}
+                {% comment %}Student's wrong answer{% endcomment %}
+                <span class="bubble student-choice student-wrong">
+                  {{ option }}
+                </span>
+              {% endif %}
+            {% elif option == item.correct %}
+              {% comment %}Correct answer (if student chose another){% endcomment %}
+              <span class="bubble correct-answer">
+                {{ option }}
+              </span>
+            {% else %}
+              <span class="bubble">
+                {{ option }}
+              </span>
+            {% endif %}
+
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+
+    {# RIGHT COLUMN: 26–50 #}
+    <div class="column">
+      {% for item in items|slice:"25:50" %}
+        <div class="bubble-row">
+          <span class="question-number">
+            {{ item.number }}.
+          </span>
+
+          {% for option in options %}
+            {% if option == item.student %}
+              {% if item.is_correct %}
+                <span class="bubble student-choice student-correct">
+                  {{ option }}
+                </span>
+              {% else %}
+                <span class="bubble student-choice student-wrong">
+                  {{ option }}
+                </span>
+              {% endif %}
+            {% elif option == item.correct %}
+              <span class="bubble correct-answer">
+                {{ option }}
+              </span>
+            {% else %}
+              <span class="bubble">
+                {{ option }}
+              </span>
+            {% endif %}
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+
+  </div>
+</div>
+
+<link rel="stylesheet" href="{% static 'css/answer_key.css' %}">
+{% endblock %}

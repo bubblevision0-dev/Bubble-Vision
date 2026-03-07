@@ -1,0 +1,103 @@
+{# analysis/users/edit_answer_key.html #}
+
+<form method="post"
+      enctype="multipart/form-data"
+      class="answer-key-edit-form"
+      data-key-id="{{ form.instance.id }}">
+    {% csrf_token %}
+
+    <div class="answer-key-container card">
+        <div class="answer-key-header">
+            <div class="icon-circle">
+                <i class="fas fa-pen-to-square"></i>
+            </div>
+            <div class="header-text">
+                <h3>Edit Item Analysis Upload</h3>
+                <p>Update the class details or replace the uploaded files.</p>
+            </div>
+        </div>
+
+        {# non-field errors, e.g. duplicate constraint message #}
+        {% if form.non_field_errors %}
+            <div class="form-errors">
+                {% for err in form.non_field_errors %}
+                    <p>{{ err }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="form-columns">
+            {# LEFT COLUMN: grade / section / subject #}
+            <div class="form-column">
+                <div class="form-group">
+                    <label for="{{ form.grade.id_for_label }}">Grade</label>
+                    {{ form.grade }}
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.section.id_for_label }}">Section</label>
+                    {{ form.section }}
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.subject.id_for_label }}">Subject</label>
+                    {{ form.subject }}
+                </div>
+            </div>
+
+            {# RIGHT COLUMN: files #}
+            <div class="form-column">
+                <div class="upload-group">
+                    <label class="field-label">Test Sheet</label>
+
+                    <div class="current-file">
+                        <span class="file-name-label">Current:</span>
+                        <span class="file-name">
+                            {% if form.instance.test_sheet %}
+                                {{ form.instance.test_sheet.name }}
+                            {% else %}
+                                None
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    <label for="{{ form.test_sheet.id_for_label }}"
+                           class="custom-file-upload">
+                        <i class="fas fa-file-alt"></i>
+                        <span>Replace Test Sheet (optional)</span>
+                        {{ form.test_sheet }}
+                    </label>
+                </div>
+
+                <div class="upload-group">
+                    <label class="field-label">Answer Key</label>
+
+                    <div class="current-file">
+                        <span class="file-name-label">Current:</span>
+                        <span class="file-name">
+                            {% if form.instance.file %}
+                                {{ form.instance.file.name }}
+                            {% else %}
+                                None
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    <label for="{{ form.file.id_for_label }}"
+                           class="custom-file-upload">
+                        <i class="fas fa-key"></i>
+                        <span>Replace Answer Key (optional)</span>
+                        {{ form.file }}
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-footer">
+            <button type="submit" class="btn-submit">
+                <i class="fas fa-save"></i>
+                Update Upload
+            </button>
+        </div>
+    </div>
+</form>

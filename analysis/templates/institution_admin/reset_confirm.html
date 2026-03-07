@@ -1,0 +1,21 @@
+{% extends "analysis/base.html" %}
+{% block content %}
+<div style="max-width: 500px; margin: 50px auto; padding: 30px; background: white; border-radius: 12px; border: 2px solid #fee2e2; text-align: center;">
+    <h2 style="color: #dc2626;"><i class="fas fa-exclamation-triangle"></i> Danger Zone</h2>
+    <p style="color: #475569;">You are about to delete all <strong>Scan Results</strong> and <strong>Student Records</strong>. This cannot be undone.</p>
+    
+    <form method="POST">
+        {% csrf_token %}
+        <p style="font-size: 0.9rem; color: #64748b; margin-bottom: 10px;">Type <strong>ERASE</strong> to confirm:</p>
+        <input type="text" name="confirm_text" placeholder="ERASE" required 
+               style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #cbd5e1; border-radius: 6px; text-align: center; font-weight: bold;">
+        
+        <div style="display: flex; gap: 10px;">
+            <a href="{% url 'maintenance_page' %}" style="flex: 1; padding: 12px; background: #f1f5f9; color: #475569; text-decoration: none; border-radius: 6px;">Cancel</a>
+            <button type="submit" style="flex: 1; padding: 12px; background: #dc2626; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
+                Permanently Delete
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,14 @@
+<!-- assign_grading_period.html -->
+{% extends 'base.html' %}
+
+{% block content %}
+  <h2>Assign Grading Periods to {{ teacher.user.get_full_name }}</h2>
+
+  <form method="POST">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">Assign Grading Periods</button>
+  </form>
+
+  <a href="{% url 'teacher_class_assignments' %}" class="btn btn-secondary">Cancel</a>
+{% endblock %}

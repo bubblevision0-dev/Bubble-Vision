@@ -1,0 +1,444 @@
+{% extends "analysis/users/base.html" %}
+{% load static %}
+
+{% block title %}Reports | BubbleVision{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/user_dashboard.css' %}">
+
+<style>
+  .report-shell{
+    max-width: 1180px;
+    margin: 22px auto 34px;
+    padding: 0 18px;
+  }
+
+  .report-header{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:14px;
+    margin-bottom: 14px;
+  }
+
+  /* Back Button Styling */
+  .btn-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    background: #ffffff;
+    border: 1px solid rgba(148,163,184,.28);
+    color: #374151;
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: 0 12px 28px rgba(15,23,42,.08);
+    transition: all 0.2s ease;
+    margin-bottom: 8px;
+  }
+
+  .btn-back:hover {
+    background: #f9fafb;
+    transform: translateX(-3px);
+  }
+
+  .report-title h2{
+    margin:0;
+    font-size: 28px;
+    letter-spacing: -0.5px;
+  }
+  .report-title .sub{
+    margin:6px 0 0;
+    opacity:.78;
+    font-size: 13px;
+  }
+
+  .pill-row{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+  }
+  .pill{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:7px 12px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.78);
+    border: 1px solid rgba(148,163,184,.28);
+    box-shadow: 0 12px 28px rgba(15,23,42,.08);
+    font-size: 12px;
+    font-weight: 700;
+    color:#0f172a;
+    white-space: nowrap;
+  }
+  .pill i{ opacity:.85; }
+
+  .report-toolbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    flex-wrap:wrap;
+    margin: 14px 0 12px;
+  }
+
+  .searchbox{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background: rgba(255,255,255,.82);
+    border: 1px solid rgba(148,163,184,.30);
+    border-radius: 14px;
+    padding: 10px 12px;
+    min-width: 360px;
+    box-shadow: 0 12px 28px rgba(15,23,42,.08);
+  }
+  .searchbox i{ opacity:.75; }
+  .searchbox input{
+    border:none;
+    outline:none;
+    background: transparent;
+    width: 100%;
+    font-size: 13px;
+  }
+
+  /* Grading buttons row */
+  .gp-wrap{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+    margin: 6px 0 16px;
+  }
+  .gp-label{
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .10em;
+    text-transform: uppercase;
+    color:#64748b;
+  }
+  .gp-row{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .gp-btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding: 9px 14px;
+    border-radius: 999px;
+    font-weight: 900;
+    font-size: 12px;
+    border: 1px solid rgba(148,163,184,.26);
+    background: rgba(255,255,255,.78);
+    color:#0f172a;
+    box-shadow: 0 12px 28px rgba(15,23,42,.08);
+    text-decoration:none;
+    cursor:pointer;
+    user-select:none;
+  }
+  .gp-btn:hover{ transform: translateY(-1px); }
+  .gp-btn.active{
+    background: rgba(37,99,235,.16);
+    border-color: rgba(37,99,235,.28);
+    color:#1d4ed8;
+  }
+  .gp-btn.disabled{
+    opacity:.45;
+    pointer-events:none;
+    filter: grayscale(.2);
+  }
+
+  .report-grid{
+    display:grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+  @media (max-width: 980px){
+    .report-grid{ grid-template-columns: 1fr; }
+    .searchbox{ min-width: 100%; }
+  }
+
+  .report-card{
+    background: rgba(255,255,255,.84);
+    border: 1px solid rgba(148,163,184,.26);
+    border-radius: 18px;
+    box-shadow: 0 18px 45px rgba(15,23,42,.10);
+    padding: 14px 14px 12px;
+  }
+
+  .rc-top{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:12px;
+  }
+
+  .rc-left{
+    display:flex;
+    gap:12px;
+    align-items:flex-start;
+  }
+
+  .grade-badge{
+    width: 46px;
+    height: 46px;
+    border-radius: 16px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background: rgba(37,99,235,.12);
+    border: 1px solid rgba(37,99,235,.22);
+    color:#1d4ed8;
+    font-weight: 900;
+    box-shadow: 0 12px 26px rgba(37,99,235,.18);
+    flex: 0 0 auto;
+    font-size: 15px;
+  }
+
+  .rc-title{
+    margin:0;
+    font-size: 16px;
+    font-weight: 900;
+    color:#0f172a;
+  }
+  .rc-meta{
+    margin-top: 4px;
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    align-items:center;
+    font-size: 12px;
+    color:#64748b;
+  }
+  .dot{
+    width:4px; height:4px;
+    border-radius:999px;
+    background: rgba(100,116,139,.7);
+    display:inline-block;
+  }
+
+  .status{
+    font-size: 12px;
+    font-weight: 900;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(148,163,184,.28);
+    background: rgba(255,255,255,.72);
+    color:#0f172a;
+    white-space: nowrap;
+  }
+  .status.good{
+    background: rgba(34,197,94,.12);
+    border-color: rgba(34,197,94,.22);
+    color:#166534;
+  }
+  .status.empty{
+    background: rgba(148,163,184,.12);
+    border-color: rgba(148,163,184,.22);
+    color:#334155;
+  }
+
+  .rc-stats{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    margin-top: 10px;
+  }
+  .stat{
+    flex: 1 1 140px;
+    background: rgba(248,250,252,.9);
+    border: 1px solid rgba(148,163,184,.20);
+    border-radius: 14px;
+    padding: 10px 10px;
+  }
+  .stat .k{
+    font-size: 11px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color:#94a3b8;
+    font-weight: 900;
+  }
+  .stat .v{
+    font-size: 18px;
+    margin-top: 2px;
+    font-weight: 900;
+    color:#0f172a;
+  }
+
+  .rc-actions{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+    margin-top: 12px;
+  }
+
+  .btn-soft{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-size: 12px;
+    font-weight: 900;
+    text-decoration:none;
+    border: 1px solid rgba(148,163,184,.26);
+    background: rgba(255,255,255,.78);
+    color:#0f172a;
+    box-shadow: 0 12px 28px rgba(15,23,42,.08);
+    cursor:pointer;
+  }
+  .btn-soft:hover{ transform: translateY(-1px); }
+
+  .btn-primary-soft{
+    background: rgba(37,99,235,.14);
+    border-color: rgba(37,99,235,.24);
+    color:#1d4ed8;
+  }
+
+  .btn-disabled{
+    opacity: .45;
+    pointer-events: none;
+    filter: grayscale(0.2);
+  }
+
+  .empty-state{
+    background: rgba(255,255,255,.84);
+    border: 1px solid rgba(148,163,184,.26);
+    border-radius: 18px;
+    box-shadow: 0 18px 45px rgba(15,23,42,.10);
+    padding: 18px;
+    color:#64748b;
+  }
+</style>
+
+<div class="report-shell">
+
+  <div class="report-header">
+    <div class="report-title">
+      <h2>Reports</h2>
+      <div class="sub">
+        {% if institution_name %}{{ institution_name }}{% else %}(No institution){% endif %}
+        {% if academic_year %} • School Year: {{ academic_year }}{% endif %}
+        {% if selected_gp %} • Grading: {{ selected_gp.period }}{% endif %}
+        • Item analysis reports per Grade/Section/Subject
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 12px;">
+      <a href="{% url 'user_dashboard' %}" class="btn-back">
+        <i class="fas fa-arrow-left"></i> Back to Dashboard
+      </a>
+      <div class="pill-row">
+        <div class="pill"><i class="fas fa-file-lines"></i> {{ total_reports|default:"0" }} reports</div>
+        <div class="pill"><i class="fas fa-sheet-plastic"></i> {{ total_scans|default:"0" }} scans</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="report-toolbar">
+    <form method="get" class="searchbox">
+      {% if selected_gp %}<input type="hidden" name="gp" value="{{ selected_gp.id }}">{% endif %}
+      <i class="fas fa-magnifying-glass"></i>
+      <input type="text" name="q" value="{{ q|default:'' }}" placeholder="Search grade / section / subject…">
+    </form>
+  </div>
+
+  {% if grading_buttons and grading_buttons|length %}
+    <div class="gp-wrap">
+      <div class="gp-label">Grading</div>
+      <div class="gp-row">
+        {% for b in grading_buttons %}
+          {% if b.enabled %}
+            <a class="gp-btn {% if b.selected %}active{% endif %}"
+               href="?gp={{ b.id }}{% if q %}&q={{ q|urlencode }}{% endif %}">
+              {{ b.period }}
+            </a>
+          {% else %}
+            <span class="gp-btn disabled {% if b.selected %}active{% endif %}">
+              {{ b.period }}
+            </span>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
+  {% if report_rows and report_rows|length %}
+    <div class="report-grid">
+      {% for r in report_rows %}
+        <div class="report-card">
+
+          <div class="rc-top">
+            <div class="rc-left">
+              <div class="grade-badge">{{ r.ak.grade.name }}</div>
+
+              <div>
+                <p class="rc-title">{{ r.ak.section.name }} • {{ r.ak.subject.name }}</p>
+                <div class="rc-meta">
+                  <span>Grade {{ r.ak.grade.name }}</span>
+                  <span class="dot"></span>
+                  <span>
+                    {% if r.last_scan %}
+                      Last scan: {{ r.last_scan|date:"M d, Y • h:i A" }}
+                    {% else %}
+                      No scans yet
+                    {% endif %}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {% if r.total_scans|default:0 > 0 %}
+              <span class="status good">READY</span>
+            {% else %}
+              <span class="status empty">NO SCANS</span>
+            {% endif %}
+          </div>
+
+          <div class="rc-stats">
+            <div class="stat">
+              <div class="k">Students Scanned</div>
+              <div class="v">{{ r.total_students|default:"0" }}</div>
+            </div>
+            <div class="stat">
+              <div class="k">Items</div>
+              <div class="v">{{ r.total_items|default:"0" }}</div>
+            </div>
+            <div class="stat">
+              <div class="k">Total Points</div>
+              <div class="v">{{ r.total_points|default:"0" }}</div>
+            </div>
+          </div>
+
+          <div class="rc-actions">
+            {% if r.total_scans|default:0 > 0 %}
+              <a class="btn-soft btn-primary-soft"
+                 href="{% url 'item_analysis' r.ak.id %}{% if selected_gp %}?gp={{ selected_gp.id }}{% endif %}">
+                <i class="fas fa-chart-column"></i> View Result
+              </a>
+            {% else %}
+              <a class="btn-soft btn-primary-soft btn-disabled" href="#">
+                <i class="fas fa-chart-column"></i> View Result
+              </a>
+            {% endif %}
+          </div>
+
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty-state">
+      No reports for this grading period yet. Scan at least one student sheet for the selected grading period.
+    </div>
+  {% endif %}
+
+</div>
+
+{% endblock %}

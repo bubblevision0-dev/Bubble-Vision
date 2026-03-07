@@ -1,0 +1,24 @@
+{% extends "analysis/base.html" %}
+{% load static %}
+{% block title %}Edit User{% endblock %}
+
+{% block content %}
+<div class="edit-user-container">
+  <h2>Edit User</h2>
+
+  <form method="post">
+    {% csrf_token %}
+    <div class="form-group">
+      {{ form.as_p }}
+    </div>
+    <div class="user-form-card">
+      <button type="submit" class="btn-submit">Update User</button>
+      <a href="{% url 'user_management' %}" class="btn-cancel">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/user_management.css' %}">
+{% endblock %}

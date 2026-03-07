@@ -1,0 +1,70 @@
+{% extends 'analysis/base.html' %}
+{% load static %}
+
+{% block title %}Grade Detail | Item Analysis System{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ grade.name }} - Details</h1>
+        <p class="subtitle">Manage the grading periods for this grade.</p>
+    </div>
+</div>
+
+<button type="button" class="btn-submit" data-bs-toggle="modal" data-bs-target="#addGradingModal">
+  Add Grading Period
+</button>
+
+<!-- Displaying Grading Periods -->
+<div class="grading-periods">
+    <h2>Grading Periods</h2>
+    {% if grading_periods %}
+      <ul>
+        {% for period in grading_periods %}
+          <li>{{ period.get_period_display }}: {{ period.start_date }} to {{ period.end_date }}</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>No grading periods set for this grade.</p>
+    {% endif %}
+</div>
+
+<!-- Grading Period Modal -->
+<div class="modal fade" id="addGradingModal" tabindex="-1" aria-labelledby="addGradingModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{% url 'add_grading_period' grade.id %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addGradingModalLabel">Add Grading Period</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="period">Grading Period</label>
+                        <select class="form-select" id="period" name="period">
+                            <option value="1st">1st Grading</option>
+                            <option value="2nd">2nd Grading</option>
+                            <option value="3rd">3rd Grading</option>
+                            <option value="4th">4th Grading</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="start_date">Start Date</label>
+                        <input type="date" class="form-control" id="start_date" name="start_date" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="end_date">End Date</label>
+                        <input type="date" class="form-control" id="end_date" name="end_date" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Save Grading Period</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

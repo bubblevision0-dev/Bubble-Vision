@@ -1,0 +1,338 @@
+{% extends 'analysis/users/base.html' %}
+{% load static %}
+
+{% block title %}Scan Result{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/answer_key.css' %}">
+
+<div class="ak-review-page">
+
+  <div class="ak-review-header-card">
+    <div class="ak-review-main">
+      <h2>Scan Result</h2>
+
+      <p class="ak-review-subtitle">
+        Grade {{ grade.name }} – Section {{ section.name }} – {{ subject.name }}.
+      </p>
+
+      <div class="ak-chip-row">
+
+        <!-- (Optional) if you want grading chip back, uncomment and keep the AnswerKey-first logic
+        <span class="ak-chip">
+          Grading:
+          {% if grading_period %}
+            {{ grading_period.period }}
+          {% elif answer_key and answer_key.grading_period %}
+            {{ answer_key.grading_period.period }}
+          {% elif scan and scan.answer_key and scan.answer_key.grading_period %}
+            {{ scan.answer_key.grading_period.period }}
+          {% elif selected_grading_period %}
+            {{ selected_grading_period.period }}
+          {% else %}
+            —
+          {% endif %}
+        </span>
+        -->
+
+        <span class="ak-chip">
+          Student:
+          {% if student_name %}
+            {{ student_name }}
+          {% elif scan and scan.student_name %}
+            {{ scan.student_name }}
+          {% else %}
+            (No name detected)
+          {% endif %}
+        </span>
+
+        <span class="ak-chip">
+          {% if score and max_score %}
+            Score: {{ score }} / {{ max_score }} ({{ score_percent|floatformat:1 }}%)
+          {% elif scan and scan.score and scan.max_score %}
+            Score: {{ scan.score }} / {{ scan.max_score }}
+          {% else %}
+            Score: —
+          {% endif %}
+        </span>
+
+      </div>
+    </div>
+
+    <div class="ak-review-right">
+      <div class="ak-header-actions">
+
+        <!-- ✅ SAFE: use grade/section/subject IDs (always present) -->
+        <a href="{% url 'user_capture' grade.id section.id subject.id %}{% if gp_id %}?gp={{ gp_id }}{% endif %}"
+           class="btn-secondary">
+          View Scan History
+        </a>
+
+        {% if answer_key %}
+          <a href="{% url 'scan_document' answer_key.pk %}{% if gp_id %}?gp={{ gp_id }}{% endif %}"
+             class="btn-primary">
+            Scan New Sheet
+          </a>
+
+          {% if scan %}
+            <a href="{% url 'scan_document' answer_key.pk %}?mode=rescan&scan_id={{ scan.id }}{% if gp_id %}&gp={{ gp_id }}{% endif %}"
+               class="btn-secondary">
+              Re-Scan Sheet
+            </a>
+          {% endif %}
+        {% else %}
+          <button class="btn-primary" disabled title="No answer key found for this grading period.">
+            Scan New Sheet
+          </button>
+        {% endif %}
+
+      </div>
+
+      {% if scan and scan.created_at %}
+        <p class="ak-meta">
+          Scanned on: {{ scan.created_at|date:"Y-m-d H:i" }}
+        </p>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if image_url %}
+    <div class="ak-image-card">
+      <div class="ak-image-header">
+        <h3>Scanned Sheet</h3>
+        <p class="ak-table-subtitle">Annotated bubble sheet used for this result. <span class="hint-zoom">(Click image to zoom)</span></p>
+      </div>
+      <div class="ak-image-wrapper">
+        <img
+          id="annotatedSheetImg"
+          src="{{ image_url }}?v={% now 'U' %}"
+          alt="Annotated scanned sheet"
+          class="ak-scanned-image zoomable-sheet">
+      </div>
+    </div>
+  {% elif scan and scan.sheet_image %}
+    <div class="ak-image-card">
+      <div class="ak-image-header">
+        <h3>Scanned Sheet</h3>
+        <p class="ak-table-subtitle">Annotated bubble sheet used for this result. <span class="hint-zoom">(Click image to zoom)</span></p>
+      </div>
+      <div class="ak-image-wrapper">
+        <img
+          id="annotatedSheetImg"
+          src="{{ scan.sheet_image.url }}?v={% now 'U' %}"
+          alt="Annotated scanned sheet"
+          class="ak-scanned-image zoomable-sheet">
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- ✅ Zoom Modal -->
+  <div id="sheetZoomModal" class="sheet-zoom-modal" aria-hidden="true">
+    <div class="sheet-zoom-backdrop"></div>
+
+    <div class="sheet-zoom-panel" role="dialog" aria-modal="true" aria-label="Zoomed scanned sheet">
+      <button type="button" class="sheet-zoom-close" id="sheetZoomClose" aria-label="Close zoom">✕</button>
+
+      <div class="sheet-zoom-body">
+        <img id="sheetZoomImg" src="" alt="Zoomed annotated sheet">
+      </div>
+    </div>
+  </div>
+
+  <div class="ak-table-card">
+    <div class="ak-table-header">
+      <h3>Per-Item Results</h3>
+      <p class="ak-table-subtitle">Each row shows the correct answer vs. the student's answer.</p>
+    </div>
+
+    <div class="ak-table-wrapper">
+      <table class="ak-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Correct</th>
+            <th>Student Answer</th>
+            <th>Points</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in items %}
+            <tr class="{% if item.is_correct %}ak-row-correct{% else %}ak-row-wrong{% endif %}">
+              <td>{{ item.number }}</td>
+              <td>{{ item.correct|default:"—" }}</td>
+              <td>
+                {% if item.student %}
+                  {{ item.student }}
+                {% else %}
+                  <span style="color:#9ca3af;">Blank</span>
+                {% endif %}
+              </td>
+              <td>{{ item.points }}</td>
+              <td>
+                {% if item.is_correct %}
+                  <span class="status-pill status-correct">Correct</span>
+                {% elif item.student %}
+                  <span class="status-pill status-wrong">Wrong</span>
+                {% else %}
+                  <span class="status-pill status-blank">Blank</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<style>
+.ak-review-page { max-width: 1100px; margin: 32px auto; padding: 0 16px; }
+
+.ak-review-header-card,
+.ak-table-card,
+.ak-image-card {
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 20px 24px;
+  box-shadow: 0 22px 50px rgba(15, 23, 42, 0.06);
+  margin-bottom: 20px;
+}
+
+.ak-review-header-card { display: flex; justify-content: space-between; gap: 16px; }
+.ak-review-main h2 { margin: 0; font-size: 22px; font-weight: 600; color: #0f172a; }
+.ak-review-subtitle { margin: 4px 0 0; font-size: 14px; color: #6b7280; }
+.ak-chip-row { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
+.ak-chip { display: inline-flex; align-items: center; border-radius: 999px; padding: 6px 12px; background: #f3f4ff; color: #1f2937; font-size: 13px; font-weight: 500; }
+.ak-meta { margin: 6px 0 0; font-size: 12px; color: #6b7280; text-align: right; }
+.ak-header-actions { display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 4px; flex-wrap: wrap; }
+
+.btn-primary,.btn-secondary{
+  display:inline-flex;align-items:center;justify-content:center;border-radius:999px;
+  padding:6px 14px;font-size:12px;font-weight:600;text-decoration:none;cursor:pointer;
+  border:none;white-space:nowrap;
+}
+.btn-primary{background:#2563eb;color:#f9fafb;box-shadow:0 8px 20px rgba(37,99,235,.35);}
+.btn-primary:hover{background:#1d4ed8;}
+.btn-secondary{background:#e5e7eb;color:#111827;}
+.btn-secondary:hover{background:#d1d5db;}
+.btn-primary[disabled]{opacity:.6;cursor:not-allowed;box-shadow:none;}
+
+.ak-image-wrapper{margin-top:10px;display:flex;justify-content:center;}
+.ak-scanned-image{max-width:100%;height:auto;border-radius:18px;border:1px solid #e5e7eb;box-shadow:0 15px 40px rgba(15,23,42,.15);}
+
+/* ✅ Click-to-zoom */
+.zoomable-sheet{ cursor: zoom-in; }
+.hint-zoom{ color:#94a3b8; font-size:12px; margin-left:6px; }
+
+/* ✅ Zoom modal */
+.sheet-zoom-modal{
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: none;
+}
+.sheet-zoom-modal.is-open{ display:block; }
+.sheet-zoom-backdrop{
+  position:absolute; inset:0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(6px);
+}
+.sheet-zoom-panel{
+  position:absolute;
+  inset: 18px;
+  max-width: 1200px;
+  margin: auto;
+  background:#ffffff;
+  border-radius: 22px;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.35);
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+}
+.sheet-zoom-close{
+  position:absolute;
+  top:10px; right:10px;
+  width:38px; height:38px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,0.35);
+  background: rgba(255,255,255,0.95);
+  color:#0f172a;
+  font-size:18px;
+  font-weight:800;
+  cursor:pointer;
+  z-index:2;
+}
+.sheet-zoom-close:hover{ background:#f3f4f6; }
+.sheet-zoom-body{
+  padding: 18px;
+  height: 100%;
+  overflow:auto; /* pan via scroll */
+}
+.sheet-zoom-body img{
+  width: 100%;
+  height:auto;
+  border-radius:18px;
+  border:1px solid #e5e7eb;
+}
+
+/* optional: make zoom modal more spacious on mobile */
+@media (max-width:768px){
+  .ak-review-header-card{flex-direction:column;}
+  .ak-header-actions{justify-content:flex-start;}
+  .ak-meta{text-align:left;}
+  .sheet-zoom-panel{ inset: 10px; }
+  .sheet-zoom-body{ padding: 12px; }
+}
+
+.ak-table-wrapper{margin-top:12px;overflow-x:auto;}
+.ak-table{width:100%;border-collapse:collapse;font-size:13px;}
+.ak-table th,.ak-table td{border:1px solid #e5e7eb;padding:6px 8px;text-align:left;white-space:nowrap;}
+.ak-table th{background:#f9fafb;font-weight:600;}
+.ak-row-correct{background:#ecfdf5;}
+.ak-row-wrong{background:#fef2f2;}
+
+.status-pill{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:600;}
+.status-correct{background:#dcfce7;color:#15803d;}
+.status-wrong{background:#fee2e2;color:#b91c1c;}
+.status-blank{background:#e5e7eb;color:#4b5563;}
+</style>
+
+<script>
+(function(){
+  const img = document.getElementById("annotatedSheetImg");
+  const modal = document.getElementById("sheetZoomModal");
+  const zoomImg = document.getElementById("sheetZoomImg");
+  const closeBtn = document.getElementById("sheetZoomClose");
+
+  if (!img || !modal || !zoomImg || !closeBtn) return;
+
+  function openModal(){
+    zoomImg.src = img.src;
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeModal(){
+    modal.classList.remove("is-open");
+    modal.setAttribute("aria-hidden", "true");
+    zoomImg.src = "";
+    document.body.style.overflow = "";
+  }
+
+  img.addEventListener("click", openModal);
+
+  closeBtn.addEventListener("click", closeModal);
+  modal.querySelector(".sheet-zoom-backdrop").addEventListener("click", closeModal);
+
+  document.addEventListener("keydown", function(e){
+    if (e.key === "Escape" && modal.classList.contains("is-open")){
+      closeModal();
+    }
+  });
+})();
+</script>
+
+{% endblock %}

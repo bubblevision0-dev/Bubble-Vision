@@ -1,0 +1,78 @@
+{% extends "analysis/users/base.html" %}
+{% load static %}
+
+{% block title %}
+Students | {{ grade.name }} - {{ section.name }}
+{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/user_dashboard.css' %}">
+
+<div class="page-header">
+  <div>
+    <h2>
+      {{ grade.name }} – {{ section.name }}
+    </h2>
+
+    <h3 class="subtitle" style="margin:6px 0 12px;font-weight:600;">
+      {{ subject.name }} • {{ institution_name }}
+      {% if academic_year %} • SY {{ academic_year }}{% endif %}
+    </h3>
+
+    <p class="subtitle">
+      Students assigned to this class
+    </p>
+  </div>
+</div>
+
+<div class="assigned-card">
+  <div class="assigned-head">
+    <div class="assigned-title">
+      <i class="fas fa-users"></i>
+      <span>Student List</span>
+    </div>
+    <div class="assigned-count">
+      {{ students|length }} students
+    </div>
+  </div>
+
+  {% if students %}
+    <div style="margin-top:10px;">
+      <table style="width:100%; border-collapse:collapse;">
+        <thead>
+          <tr style="background:#f8fafc;">
+            <th style="text-align:left;padding:10px;">#</th>
+            <th style="text-align:left;padding:10px;">Student Name</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in students %}
+            <tr style="border-bottom:1px solid #e5e7eb;">
+              <td style="padding:8px 10px;">{{ forloop.counter }}</td>
+              <td style="padding:8px 10px;">
+                {% if s.last_name %}
+                  {{ s.last_name }}, {{ s.full_name }}
+                  {% if s.middle_initial %}{{ s.middle_initial }}.{% endif %}
+                {% else %}
+                  {{ s.full_name }}
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p style="margin-top:10px; opacity:.7;">
+      No students found for this class.
+    </p>
+  {% endif %}
+</div>
+
+<div style="margin-top:20px;">
+  <a href="{% url 'user_dashboard' %}" class="btn-secondary">
+    ← Back to Dashboard
+  </a>
+</div>
+
+{% endblock %}

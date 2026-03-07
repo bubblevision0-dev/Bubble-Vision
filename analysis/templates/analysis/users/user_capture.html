@@ -1,0 +1,303 @@
+{% extends 'analysis/users/base.html' %}
+{% load static %}
+
+{% block title %}Scan History | BubbleVision{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/answer_key.css' %}">
+<div class="ak-review-page">
+
+    <div class="ak-review-header-card no-print">
+        <div class="ak-review-main">
+            <h2>Scan History</h2>
+
+            <p class="ak-review-subtitle">
+                Grade <strong>{{ grade.name }}</strong> •
+                Section <strong>{{ section.name }}</strong> •
+                <strong>{{ subject.name }}</strong>
+            </p>
+
+            {% if grading_periods %}
+            <div class="gp-tabs" style="margin-top: 15px;">
+                {% for gp in grading_periods %}
+                    {% if gp.enabled %}
+                        <a href="?gp={{ gp.id }}" class="gp-tab {% if gp.is_selected %}active{% endif %}">
+                            {{ gp.label }}
+                        </a>
+                    {% else %}
+                        <span class="gp-tab disabled">{{ gp.label }}</span>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if all_answer_keys %}
+            <div class="quiz-tabs" style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
+                <a href="?gp={{ gp_id }}" 
+                   class="gp-tab {% if not request.GET.quiz %}active{% endif %}" 
+                   style="font-size: 11px; padding: 6px 12px; background: #f8fafc;">
+                    All Assessments
+                </a>
+
+                {% for ak in all_answer_keys %}
+                <a href="?gp={{ gp_id }}&quiz={{ ak.id }}" 
+                   class="gp-tab {% if active_quiz.id == ak.id %}active{% endif %}"
+                   style="font-size: 11px; padding: 6px 12px;">
+                    <i class="fas fa-file-alt"></i> {{ ak.quiz_name }}
+                </a>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="ak-review-right">
+            <div class="ak-header-actions">
+                {% if active_quiz %}
+                    <a href="{% url 'scan_document' active_quiz.pk %}?gp={{ gp_id }}" class="btn-primary">
+                        Scan New Sheet
+                    </a>
+                    <a href="{% url 'item_analysis' active_quiz.pk %}?gp={{ gp_id }}" class="btn-secondary">
+                        Tally per item
+                    </a>
+                {% endif %}
+
+                <a href="{% url 'upload_answer_key' %}{% if gp_id %}?gp={{ gp_id }}{% endif %}" class="btn-secondary">
+                    Back
+                </a>
+                <button type="button" class="btn-secondary" onclick="window.print()">
+                    Print
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="print-header print-only">
+        <h2 style="margin-bottom: 5px;">Scan History Report</h2>
+        <p>{{ selected_grading_period.period }} | {{ academic_year }}</p>
+        <div class="print-meta" style="display: grid; grid-template-columns: 1fr 1fr; margin: 20px 0; border: 1px solid #eee; padding: 15px;">
+            <div><strong>Grade & Section:</strong> {{ grade.name }} - {{ section.name }}</div>
+            <div><strong>Subject:</strong> {{ subject.name }}</div>
+            {% if active_quiz %}
+            <div><strong>Assessment:</strong> {{ active_quiz.quiz_name }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="ak-table-card">
+        {% if grouped_scans %}
+            {% for group in grouped_scans %}
+            <div class="quiz-record-section" style="margin-bottom: 40px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 10px; border-bottom: 2px solid #f1f5f9; margin-bottom: 15px;">
+                    <h3 style="margin:0; font-size: 18px; color: #1e293b;">
+                        <i class="fas fa-clipboard-list" style="color: #3b82f6;"></i> {{ group.answer_key.quiz_name }}
+                    </h3>
+                    <div style="display: flex; gap: 10px;">
+                        <span class="ak-chip">Items: {{ group.answer_key.total_items }}</span>
+                    </div>
+                </div>
+
+                <div class="ak-table-wrapper">
+                    <table class="ak-table">
+                        <thead>
+                            <tr>
+                                <th>Student Name</th>
+                                <th>Raw Score</th>
+                                <th class="no-print">Scanned Date</th>
+                                <th class="no-print">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for scan in group.scans %}
+                            <tr>
+                                <td style="font-weight: 600;">{{ scan.student_name|default:"Unnamed Student" }}</td>
+                                <td>{{ scan.score }} / {{ scan.max_score }}</td>
+                                <td class="no-print" style="color: #64748b; font-size: 12px;">{{ scan.created_at|date:"M d, Y" }}</td>
+                                <td class="actions-cell no-print">
+                                    <a class="btn-secondary" style="padding: 4px 10px;" href="{% url 'view_scan_result' scan.id %}?gp={{ gp_id }}">View</a>
+
+                                    <a class="btn-secondary" style="padding: 4px 10px;"
+                                      href="{% url 'scan_document' group.answer_key.pk %}?mode=rescan&scan_id={{ scan.id }}{% if gp_id %}&gp={{ gp_id }}{% endif %}">
+                                      Re-Scan
+                                    </a>
+                                    
+                                    <form method="post" action="{% url 'delete_scan_result' scan.id %}" style="display:inline;">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="gp" value="{{ gp_id }}">
+                                        <button type="submit" class="btn-danger" style="padding: 4px 10px;" onclick="return confirm('Delete this record?')">Delete</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" style="text-align:center; padding: 20px; color: #94a3b8;">No student sheets scanned for this quiz yet.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div style="text-align: center; padding: 60px 20px;">
+                <i class="fas fa-folder-open" style="font-size: 40px; color: #e2e8f0; margin-bottom: 15px;"></i>
+                <p style="color: #64748b;">No assessment records found for this grading period.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+<style>
+  .ak-review-page { max-width: 1100px; margin: 32px auto; padding: 0 16px; }
+
+  .ak-review-header-card,
+  .ak-table-card {
+    background: #ffffff;
+    border-radius: 24px;
+    padding: 20px 24px;
+    box-shadow: 0 22px 50px rgba(15, 23, 42, 0.06);
+    margin-bottom: 20px;
+  }
+
+  .ak-review-header-card {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .ak-review-main h2 { margin: 0; font-size: 22px; font-weight: 700; color: #0f172a; }
+  .ak-review-subtitle { margin: 6px 0 0; font-size: 14px; color: #6b7280; }
+
+  .ak-chip-row { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .ak-chip {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 6px 12px;
+    background: #f3f4ff;
+    color: #1f2937;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .ak-header-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+
+  .btn-primary,
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    border: none;
+    white-space: nowrap;
+    transition: .15s ease;
+  }
+
+  .btn-primary {
+    background: #2563eb;
+    color: #f9fafb;
+    box-shadow: 0 10px 24px rgba(37, 99, 235, 0.30);
+  }
+  .btn-primary:hover { background: #1d4ed8; transform: translateY(-1px); }
+  .btn-primary[disabled]{opacity:.6;cursor:not-allowed;box-shadow:none;}
+
+  .btn-secondary {
+    background: #eef2ff;
+    color: #111827;
+    border: 1px solid rgba(15, 23, 42, 0.10);
+  }
+  .btn-secondary:hover { background: #e0e7ff; transform: translateY(-1px); }
+  .btn-secondary[disabled]{opacity:.6;cursor:not-allowed;}
+
+  .btn-danger {
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-size: 12px;
+    font-weight: 800;
+    border: none;
+    cursor: pointer;
+    color: #fff;
+    background: #dc2626;
+    transition: .15s ease;
+  }
+  .btn-danger:hover { background: #b91c1c; transform: translateY(-1px); }
+
+  .gp-tabs { margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .gp-tab {
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid rgba(15, 23, 42, .15);
+    background: #ffffff;
+    color: #111827;
+    text-decoration: none;
+    font-weight: 800;
+    font-size: 13px;
+    transition: .15s ease;
+  }
+  .gp-tab:hover { background: #f3f4f6; transform: translateY(-1px); }
+  .gp-tab.active {
+    background: #0f172a;
+    color: #ffffff;
+    border-color: #0f172a;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22);
+  }
+  .gp-tab.disabled { opacity: .45; cursor: not-allowed; background: #f3f4f6; }
+
+  .ak-table-header h3 { margin: 0; font-size: 17px; font-weight: 800; color: #0f172a; }
+  .ak-table-subtitle { margin: 4px 0 0; font-size: 13px; color: #6b7280; }
+
+  .ak-table-wrapper { margin-top: 14px; overflow-x: auto; }
+  .ak-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .ak-table th, .ak-table td {
+    border: 1px solid #e5e7eb;
+    padding: 10px 10px;
+    text-align: left;
+    white-space: nowrap;
+  }
+  .ak-table th { background: #f9fafb; font-weight: 800; color: #111827; }
+
+  .actions-cell { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .inline-delete-form { display: inline; margin: 0; }
+
+  .empty-message { font-size: 14px; color: #6b7280; }
+
+  .print-header { display: none; }
+  .print-meta { margin-top: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; font-size: 13px; }
+
+  .print-only { display: none; }
+  .no-print { }
+
+  @media (max-width: 768px) {
+    .ak-review-header-card { flex-direction: column; }
+    .ak-header-actions { justify-content: flex-start; }
+    .print-meta { grid-template-columns: 1fr; }
+  }
+
+  @media print {
+    body { background: #fff !important; }
+
+    .no-print { display: none !important; }
+    .print-only { display: block !important; }
+    .print-header { display: block !important; }
+
+    .ak-review-page { max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
+    .ak-table-card { box-shadow: none !important; border-radius: 0 !important; padding: 0 !important; margin: 0 !important; }
+    .ak-review-header-card { box-shadow: none !important; border-radius: 0 !important; padding: 0 !important; margin: 0 0 12px 0 !important; }
+
+    .ak-table th, .ak-table td { padding: 8px !important; font-size: 12px !important; }
+    .ak-table th { background: #f3f4f6 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+
+<script>
+  function printHistory() {
+    window.print();
+  }
+</script>
+
+{% endblock %}
+

@@ -1,0 +1,76 @@
+{% extends 'analysis/users/base.html' %}
+{% load static %}
+
+{% block title %}Scan Detail{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/answer_key.css' %}">
+
+<div class="ak-review-page">
+
+  <div class="ak-review-header-card">
+    <div class="ak-review-main">
+      <h2>Scan Detail</h2>
+      <p class="ak-review-subtitle">
+        Grade {{ grade.name }} – Section {{ section.name }} – {{ subject.name }}<br>
+        Sheet: {{ scan.filename }}
+      </p>
+      <div class="ak-chip-row">
+        <span class="ak-chip">
+          Score: {{ scan.stats.n_correct }}/{{ scan.stats.total_items }}
+          ({{ scan.stats.percent_score|floatformat:2 }}%)
+        </span>
+        <span class="ak-chip">Blank: {{ scan.stats.n_blank }}</span>
+        <span class="ak-chip">Invalid: {{ scan.stats.n_invalid }}</span>
+        <span class="ak-chip">Wrong: {{ scan.stats.n_incorrect }}</span>
+      </div>
+    </div>
+
+    <div class="ak-review-right">
+      <img src="{{ scan.image_url }}"
+           alt="Scanned bubble sheet"
+           style="max-width:480px;border-radius:8px;border:1px solid #ddd;">
+    </div>
+  </div>
+
+  <div style="margin-top:20px;display:flex;justify-content:space-between;align-items:center;">
+    <h3>Per-Item Responses</h3>
+    <a href="{% url 'scan_item_analysis' answer_key.pk scan.filename %}"
+       class="btn btn-primary"
+       style="padding:8px 14px;border-radius:8px;background:#1976d2;color:#fff;text-decoration:none;font-size:14px;">
+      View Item Analysis
+    </a>
+  </div>
+
+  <div class="bubble-sheet-preview" style="margin-top:10px;">
+  <table class="table table-sm">
+    <thead>
+      <tr>
+        <th>Q#</th>
+        <th>Key</th>
+        <th>Ans</th>
+        <th>Points</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in scan.items %}
+        <tr class="{% if item.is_correct %}student-correct{% elif item.status == 'invalid' %}student-wrong{% endif %}">
+          <td>{{ item.number }}</td>
+          <td>{{ item.correct }}</td>
+          <td>{{ item.student|default:"-" }}</td>   <!-- RESPONSE ONLY -->
+          <td>{{ item.points }}</td>               <!-- POINTS ONLY -->
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+
+  <div style="margin-top:20px;">
+    <a href="{% url 'scan_result' answer_key.pk %}" style="text-decoration:none;font-size:14px;">
+      ← Back to all scans
+    </a>
+  </div>
+
+</div>
+{% endblock %}

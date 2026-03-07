@@ -1,0 +1,10 @@
+opencv-python
+tensorflow
+numpy
+scikit-learn
+# python-docx reportlab
+pdf2image 
+pytesseract
+rapidfuzz
+easyocr
+ 
