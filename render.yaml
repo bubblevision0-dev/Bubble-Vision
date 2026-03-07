@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: bubble-vision
+    env: python
+    branch: main
+    region: oregon
+    plan: free
+    pythonVersion: 3.11
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn item.wsgi:application
+    autoDeploy: true
