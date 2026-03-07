@@ -1813,11 +1813,11 @@ def add_grading_period(request, grading_period_id=None):
     institution = get_current_institution(request)
     if not institution:
         messages.error(request, "No institution context found.")
-        return redirect("admin_login") # Redirect to login if context is lost
+        return redirect("admin_login")
 
     active_sy = getattr(institution, "school_year", None)
-
-    # Handle Edit ID
+    
+    # Check for existing instance (for updates)
     edit_id = grading_period_id or request.GET.get("edit") or request.POST.get("grading_period_id")
     editing_obj = None
     if edit_id and str(edit_id).isdigit():
@@ -1830,16 +1830,15 @@ def add_grading_period(request, grading_period_id=None):
             gp.institution = institution
             gp.school_year = active_sy
             gp.save()
-            messages.success(request, "Grading period saved successfully!")
-            return redirect("admin_dashboard") # This reloads the whole dashboard correctly
-    
-    # If it's a GET request (for editing), we need to show the dashboard 
-    # but with the form populated. 
-    # THE BEST WAY: Redirect back to dashboard with the edit ID in the URL
-    if request.GET.get("edit"):
-         return redirect(f"/admin/dashboard/?edit={edit_id}")
+            messages.success(request, f"Grading period '{gp.period}' saved successfully!")
+        else:
+            # ✅ Added error feedback to see WHY it's failing
+            messages.error(request, f"Error saving period: {form.errors.as_text()}")
+        
+        # ✅ Redirect back with ?open=grading so the tab stays open in your template
+        return redirect(reverse("admin_dashboard") + "?open=grading")
 
-    return redirect("admin_dashboard")
+    return redirect(reverse("admin_dashboard") + "?open=grading")
 
 @require_POST
 @login_required

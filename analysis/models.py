@@ -47,22 +47,27 @@ class CustomUser(models.Model):
         return self.user.username
     
 class GradingPeriod(models.Model):
+    # ✅ Update this list to include all your new options
     GRADING_CHOICES = [
-        ('1st Grading', 'First'),
-        ('2nd Grading', 'Second'),
-        ('3rd Grading', 'Third'),
-        ('4th Grading', 'Fourth'),
+        ('1st Grading', '1st Grading'),
+        ('2nd Grading', '2nd Grading'),
+        ('3rd Grading', '3rd Grading'),
+        ('4th Grading', '4th Grading'),
+        ('Prelim', 'Prelim'),
+        ('Midterm', 'Midterm'),
+        ('Semi-Finals', 'Semi-Finals'),
+        ('Finals', 'Finals'),
+        ('Exam', 'Exam'),
     ]
 
     institution = models.ForeignKey('Institution', on_delete=models.CASCADE, related_name='grading_periods')
-    # Add this field to track which year the period belongs to
     school_year = models.CharField(max_length=20, null=True, blank=True) 
-    period = models.CharField(max_length=15, choices=GRADING_CHOICES, null=True)
+    # Ensure max_length is large enough for "Semi-Finals" (11 characters)
+    period = models.CharField(max_length=20, choices=GRADING_CHOICES, null=True)
     start_date = models.DateField()
     end_date = models.DateField()
 
     def __str__(self):
-        # Improved string representation to include the year
         return f"{self.period} ({self.school_year}) - {self.institution.name}"
 
 class Grade(models.Model):
