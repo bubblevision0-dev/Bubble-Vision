@@ -370,7 +370,7 @@ class ScanResult(models.Model):
     subject = models.ForeignKey("Subject", on_delete=models.CASCADE, related_name="scan_results")
 
     student_name = models.CharField(max_length=255, blank=True)
-    sheet_image = models.ImageField(upload_to="scan_sheets/", blank=True, null=True)
+    sheet_image = models.ImageField(upload_to="scan_sheets/", blank=True, null=True, max_length=255)
     answers = models.JSONField(default=list, blank=True)
 
     score = models.FloatField(default=0.0)
